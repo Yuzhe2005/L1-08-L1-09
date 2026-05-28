@@ -959,7 +959,7 @@ python sweep_test\analyze_sweep_results.py
 
 所以新的 seed 会自动生成新的 `sweep_result/<seed_folder>`。
 
-## 16. 常见注意事项
+## 14. 常见注意事项
 
 1. 不要把 `full EVM` 直接等同于 L1-08 交付物中的 `EVM_LIN`。
 2. L1-08 主目标是 magnitude ripple，不是 phase/group delay。
@@ -972,7 +972,7 @@ python sweep_test\analyze_sweep_results.py
 
 ---
 
-## 17. 最短命令清单
+## 15. 最短命令清单
 
 单次完整运行：
 
