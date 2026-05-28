@@ -1,0 +1,23 @@
+{
+  "paths": {
+    "repo_root": "..",
+    "sim_dir": "../L1-08_sim",
+    "base_experiment_config": "../L1_08_experiment_config.json",
+    "output_root": "../sweep_result"
+  },
+  "output": {
+    "group_by_current_seed": true,
+    "overwrite_existing_combo": true,
+    "cleanup_sim_outputs_after_copy": false
+  },
+  "stages": {
+    "run_behavior_simulation": true,
+    "run_qam_evm_simulation": true
+  },
+  "sweep": {
+    "tap_num": [64, 80, 96],
+    "regularization": [0.0001, 0.0003, 0.001],
+    "coeff_total_bits": 16,
+    "coeff_frac_bits": [14, 13, 12]
+  }
+}

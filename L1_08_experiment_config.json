@@ -1,0 +1,153 @@
+{
+  "active": {
+    "common": {
+      "fs_hz": 12000000000.0
+    },
+    "h1": {
+      "seed": 286476255
+    },
+    "h1_random_model": {
+      "frequency_grid": {
+        "f_min_hz": 3500000000.0,
+        "f_max_hz": 4500000000.0,
+        "num_points": 1001
+      },
+      "magnitude": {
+        "slope": {
+          "slope_pp_db_min": 0.0,
+          "slope_pp_db_max": 0.4,
+          "offset_db_min": -0.02,
+          "offset_db_max": 0.02
+        },
+        "ripple": {
+          "component_count_min": 1,
+          "component_count_max": 4,
+          "amplitude_db_min": 0.02,
+          "amplitude_db_max": 0.12,
+          "cycles_min": 0.5,
+          "cycles_max": 5.0
+        },
+        "notch_bump": {
+          "feature_count_min": 1,
+          "feature_count_max": 4,
+          "amplitude_db_min": 0.05,
+          "amplitude_db_max": 0.35,
+          "width_fraction_min": 0.03,
+          "width_fraction_max": 0.15,
+          "center_fraction_min": 0.05,
+          "center_fraction_max": 0.95
+        },
+        "edge_rolloff": {
+          "edge_depth_db_min": 0.05,
+          "edge_depth_db_max": 0.35,
+          "width_fraction_min": 0.05,
+          "width_fraction_max": 0.25
+        },
+        "measurement_noise": {
+          "noise_std_db_min": 0.002,
+          "noise_std_db_max": 0.01
+        }
+      },
+      "phase": {
+        "linear_phase_delay": {
+          "delay_ns_min": 0.05,
+          "delay_ns_max": 2.0,
+          "allow_negative_delay": true
+        },
+        "phase_ripple": {
+          "component_count_min": 1,
+          "component_count_max": 4,
+          "amplitude_rad_min": 0.02,
+          "amplitude_rad_max": 0.2,
+          "cycles_min": 0.5,
+          "cycles_max": 5.0
+        },
+        "local_phase_distortion": {
+          "feature_count_min": 1,
+          "feature_count_max": 4,
+          "amplitude_rad_min": 0.03,
+          "amplitude_rad_max": 0.3,
+          "width_fraction_min": 0.03,
+          "width_fraction_max": 0.15,
+          "center_fraction_min": 0.05,
+          "center_fraction_max": 0.95
+        },
+        "group_delay_ripple": {
+          "component_count_min": 1,
+          "component_count_max": 3,
+          "delay_ripple_ns_min": 0.02,
+          "delay_ripple_ns_max": 0.2,
+          "cycles_min": 0.5,
+          "cycles_max": 4.0
+        },
+        "phase_noise": {
+          "noise_std_rad_min": 0.001,
+          "noise_std_rad_max": 0.01
+        }
+      }
+    },
+    "h2_fir": {
+      "tap_num": 64,
+      "regularization": 0.0001
+    },
+    "behavior": {
+      "samples": 65536,
+      "settle_samples": 256,
+      "tone_count": 51,
+      "tone_min_hz": 3550000000.0,
+      "tone_max_hz": 4450000000.0,
+      "peak_amplitude": 0.8,
+      "seed": 1813889189
+    },
+    "qam_evm": {
+      "samples": 65536,
+      "freq_min_hz": 3550000000.0,
+      "freq_max_hz": 4450000000.0,
+      "qam_order": 64,
+      "peak_amplitude": 0.8,
+      "seed": 417471910,
+      "max_constellation_points": 3000
+    },
+    "fixed_point": {
+      "coeff_total_bits": 16,
+      "coeff_frac_bits": 13
+    }
+  },
+  "sweep": {
+    "tap_num": [
+      32,
+      48,
+      64,
+      80,
+      96
+    ],
+    "regularization": [
+      0.0,
+      1e-06,
+      1e-05,
+      0.0001,
+      0.001
+    ],
+    "tone_count": [
+      51,
+      101,
+      201
+    ],
+    "samples": [
+      65536,
+      131072
+    ],
+    "coeff_total_bits": [
+      12,
+      14,
+      16,
+      18
+    ],
+    "coeff_frac_bits": [
+      10,
+      12,
+      14,
+      16
+    ]
+  }
+}

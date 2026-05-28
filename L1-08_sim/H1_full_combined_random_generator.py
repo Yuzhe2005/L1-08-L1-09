@@ -1,0 +1,282 @@
+from dataclasses import dataclass, fields
+from datetime import datetime
+from pathlib import Path
+from typing import Any
+
+import numpy as np
+
+from H1_common import FrequencyGridConfig, H1
+from magnitude.H1_edge_rolloff_random_generator import EdgeRolloffRandomConfig, H1EdgeRolloffRandomGenerator
+from magnitude.H1_measurement_noise_random_generator import H1MeasurementNoiseRandomGenerator, MeasurementNoiseRandomConfig
+from magnitude.H1_notch_bump_random_generator import H1NotchBumpRandomGenerator, NotchBumpRandomConfig
+from magnitude.H1_ripple_random_generator import H1RippleRandomGenerator, RippleRandomConfig
+from magnitude.H1_slope_random_generator import H1SlopeRandomGenerator, SlopeRandomConfig
+from magnitude.H_magnitude_plotter import HMagnitudePlotter
+from phase.H1_group_delay_ripple_random_generator import GroupDelayRippleRandomConfig, H1GroupDelayRippleRandomGenerator
+from phase.H1_linear_phase_delay_random_generator import H1LinearPhaseDelayRandomGenerator, LinearPhaseDelayRandomConfig
+from phase.H1_local_phase_distortion_random_generator import (
+    H1LocalPhaseDistortionRandomGenerator,
+    LocalPhaseDistortionRandomConfig,
+)
+from phase.H1_phase_noise_random_generator import H1PhaseNoiseRandomGenerator, PhaseNoiseRandomConfig
+from phase.H1_phase_ripple_random_generator import H1PhaseRippleRandomGenerator, PhaseRippleRandomConfig
+from phase.H_phase_plotter import HPhasePlotter
+from L1_08_config import get_active_config_value, load_l1_08_config
+from L1_08_run_summary import update_run_summary
+
+
+@dataclass(frozen=True)
+class FullCombinedH1Run:
+    run_name: str
+    data_dir: Path
+    results_dir: Path
+    magnitude_features: list[H1]
+    phase_features: list[H1]
+    magnitude_combined: H1
+    phase_combined: H1
+    together: H1
+
+
+class H1FullCombinedRandomGenerator:
+    def __init__(self, seed: int | None = None) -> None:
+        self.rng = np.random.default_rng(seed)
+        self.h1_random_model = _load_h1_random_model_config()
+        self.grid_config = _make_frequency_grid_config(self.h1_random_model)
+
+    def generate(self, run_name: str | None = None) -> FullCombinedH1Run:
+        run_name = run_name or f"h1_full_combined_random_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        project_root = Path(__file__).resolve().parent
+        data_dir = project_root / "data" / run_name
+        results_dir = project_root / "results" / run_name
+        data_dir.mkdir(parents=True, exist_ok=True)
+        results_dir.mkdir(parents=True, exist_ok=True)
+
+        magnitude_features = [
+            self._generate_magnitude_feature("slope", H1SlopeRandomGenerator, SlopeRandomConfig),
+            self._generate_magnitude_feature("ripple", H1RippleRandomGenerator, RippleRandomConfig),
+            self._generate_magnitude_feature("notch_bump", H1NotchBumpRandomGenerator, NotchBumpRandomConfig),
+            self._generate_magnitude_feature("edge_rolloff", H1EdgeRolloffRandomGenerator, EdgeRolloffRandomConfig),
+            self._generate_magnitude_feature(
+                "measurement_noise",
+                H1MeasurementNoiseRandomGenerator,
+                MeasurementNoiseRandomConfig,
+            ),
+        ]
+        phase_features = [
+            self._generate_phase_feature(
+                "linear_phase_delay",
+                H1LinearPhaseDelayRandomGenerator,
+                LinearPhaseDelayRandomConfig,
+            ),
+            self._generate_phase_feature("phase_ripple", H1PhaseRippleRandomGenerator, PhaseRippleRandomConfig),
+            self._generate_phase_feature(
+                "local_phase_distortion",
+                H1LocalPhaseDistortionRandomGenerator,
+                LocalPhaseDistortionRandomConfig,
+            ),
+            self._generate_phase_feature(
+                "group_delay_ripple",
+                H1GroupDelayRippleRandomGenerator,
+                GroupDelayRippleRandomConfig,
+            ),
+            self._generate_phase_feature("phase_noise", H1PhaseNoiseRandomGenerator, PhaseNoiseRandomConfig),
+        ]
+
+        magnitude_combined = self._combine(magnitude_features, "magnitude_combined")
+        phase_combined = self._combine(phase_features, "phase_combined")
+        together = magnitude_combined.add(phase_combined, name="together")
+
+        magnitude_combined.save_csv(data_dir / "magnitude_combined.csv")
+        phase_combined.save_csv(data_dir / "phase_combined.csv")
+        together.save_csv(data_dir / "together.csv")
+
+        return FullCombinedH1Run(
+            run_name=run_name,
+            data_dir=data_dir,
+            results_dir=results_dir,
+            magnitude_features=magnitude_features,
+            phase_features=phase_features,
+            magnitude_combined=magnitude_combined,
+            phase_combined=phase_combined,
+            together=together,
+        )
+
+    def _next_seed(self) -> int:
+        return int(self.rng.integers(0, np.iinfo(np.uint32).max))
+
+    def _generate_magnitude_feature(self, feature_name: str, generator_type: type, config_type: type) -> H1:
+        config = _make_feature_config(
+            self.h1_random_model,
+            group_name="magnitude",
+            feature_name=feature_name,
+            config_type=config_type,
+            grid_config=self.grid_config,
+        )
+        generated = generator_type(config=config, seed=self._next_seed()).generate(name=feature_name)
+        return H1(
+            name=feature_name,
+            freq_hz=generated.freq_hz,
+            h_db=generated.h_db,
+            phase_rad=np.zeros_like(generated.h_db),
+        )
+
+    def _generate_phase_feature(self, feature_name: str, generator_type: type, config_type: type) -> H1:
+        config = _make_feature_config(
+            self.h1_random_model,
+            group_name="phase",
+            feature_name=feature_name,
+            config_type=config_type,
+            grid_config=self.grid_config,
+        )
+        generated = generator_type(config=config, seed=self._next_seed()).generate(name=feature_name)
+        return H1(
+            name=feature_name,
+            freq_hz=generated.freq_hz,
+            h_db=np.zeros_like(generated.h_db),
+            phase_rad=generated.phase_rad,
+        )
+
+    def _combine(self, features: list[H1], name: str) -> H1:
+        combined = features[0]
+        for feature in features[1:]:
+            combined = combined.add(feature, name=name)
+        return H1(
+            name=name,
+            freq_hz=combined.freq_hz,
+            h_db=combined.h_db,
+            phase_rad=combined.phase_rad,
+        )
+
+
+def _load_h1_random_model_config() -> dict[str, Any]:
+    active = load_l1_08_config().get("active", {})
+    if not isinstance(active, dict):
+        return {}
+    model = active.get("h1_random_model", {})
+    return model if isinstance(model, dict) else {}
+
+
+def _make_frequency_grid_config(model: dict[str, Any]) -> FrequencyGridConfig:
+    default = FrequencyGridConfig()
+    section = model.get("frequency_grid", {})
+    if not isinstance(section, dict):
+        section = {}
+
+    return FrequencyGridConfig(
+        f_min_hz=float(section.get("f_min_hz", default.f_min_hz)),
+        f_max_hz=float(section.get("f_max_hz", default.f_max_hz)),
+        num_points=int(section.get("num_points", default.num_points)),
+    )
+
+
+def _make_feature_config(
+    model: dict[str, Any],
+    group_name: str,
+    feature_name: str,
+    config_type: type,
+    grid_config: FrequencyGridConfig,
+) -> Any:
+    default = config_type()
+    group = model.get(group_name, {})
+    if not isinstance(group, dict):
+        group = {}
+    section = group.get(feature_name, {})
+    if not isinstance(section, dict):
+        section = {}
+
+    values: dict[str, Any] = {}
+    for field in fields(default):
+        if field.name == "grid":
+            values[field.name] = grid_config
+            continue
+        default_value = getattr(default, field.name)
+        values[field.name] = _coerce_config_value(section.get(field.name, default_value), default_value)
+    return config_type(**values)
+
+
+def _coerce_config_value(value: Any, default_value: Any) -> Any:
+    if isinstance(default_value, bool):
+        return bool(value)
+    if isinstance(default_value, int) and not isinstance(default_value, bool):
+        return int(value)
+    if isinstance(default_value, float):
+        return float(value)
+    return value
+
+
+def plot_run(run: FullCombinedH1Run) -> list[Path]:
+    magnitude_plotter = HMagnitudePlotter(results_dir=run.results_dir)
+    phase_plotter = HPhasePlotter(results_dir=run.results_dir)
+
+    plot_paths: list[Path] = []
+
+    plot_paths.append(magnitude_plotter.plot_csv(run.data_dir / "magnitude_combined.csv"))
+
+    plot_paths.append(phase_plotter.plot_csv(run.data_dir / "phase_combined.csv"))
+
+    return plot_paths
+
+
+if __name__ == "__main__":
+    h1_seed_config = get_active_config_value("h1", "seed", None)
+    h1_seed = None if h1_seed_config is None else int(h1_seed_config)
+    generator = H1FullCombinedRandomGenerator(seed=h1_seed)
+    run = generator.generate()
+    plot_paths = plot_run(run)
+    summary_path = update_run_summary(
+        run.data_dir,
+        "h1_generation",
+        {
+            "run_name": run.run_name,
+            "seed": h1_seed,
+            "data_dir": run.data_dir,
+            "results_dir": run.results_dir,
+            "frequency": {
+                "points": run.magnitude_combined.freq_hz.size,
+                "f_min_hz": run.magnitude_combined.freq_hz[0],
+                "f_max_hz": run.magnitude_combined.freq_hz[-1],
+            },
+            "magnitude_features": [
+                {
+                    "name": feature.name,
+                    "ripple_pp_db": feature.ripple_pp_db(),
+                }
+                for feature in run.magnitude_features
+            ],
+            "phase_features": [
+                {
+                    "name": feature.name,
+                    "phase_min_rad": np.min(feature.phase_rad),
+                    "phase_max_rad": np.max(feature.phase_rad),
+                }
+                for feature in run.phase_features
+            ],
+            "magnitude_combined_ripple_pp_db": run.magnitude_combined.ripple_pp_db(),
+            "phase_combined_min_rad": np.min(run.phase_combined.phase_rad),
+            "phase_combined_max_rad": np.max(run.phase_combined.phase_rad),
+            "outputs": {
+                "magnitude_combined_csv": run.data_dir / "magnitude_combined.csv",
+                "phase_combined_csv": run.data_dir / "phase_combined.csv",
+                "together_csv": run.data_dir / "together.csv",
+                "plots": plot_paths,
+            },
+        },
+        results_dir=run.results_dir,
+    )
+
+    print(f"run_name: {run.run_name}")
+    print(f"h1_seed: {h1_seed}")
+    print(f"data_folder: {run.data_dir}")
+    print(f"results_folder: {run.results_dir}")
+    print(f"summary_json: {summary_path}")
+    print(f"csv_count: {len(list(run.data_dir.glob('*.csv')))}")
+    print(f"plot_count: {len(plot_paths)}")
+    print(f"magnitude_combined_ripple_pp_db: {run.magnitude_combined.ripple_pp_db():.6f}")
+    print(
+        "phase_combined_range_rad: "
+        f"{np.min(run.phase_combined.phase_rad):.6f} to {np.max(run.phase_combined.phase_rad):.6f}"
+    )
+    print(f"together_csv: {run.data_dir / 'together.csv'}")
+    print("saved_plots:")
+    for plot_path in plot_paths:
+        print(f"  {plot_path}")
