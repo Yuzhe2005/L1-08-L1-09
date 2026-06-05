@@ -13,3 +13,20 @@ data/
 results/
 graph/
 
+# LaTeX build artifacts in report/. Keep .tex and .pdf versioned.
+report/*.aux
+report/*.bbl
+report/*.bcf
+report/*.blg
+report/*.dvi
+report/*.fdb_latexmk
+report/*.fls
+report/*.lof
+report/*.log
+report/*.lot
+report/*.out
+report/*.run.xml
+report/*.synctex.gz
+report/*.toc
+report/*.xdv
+

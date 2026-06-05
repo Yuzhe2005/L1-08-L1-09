@@ -12,7 +12,7 @@ pre_L1_09_response(f) = H1(f) * H2_fixed(f)
 
 其中 H1 表示模拟硬件链路的复数频率响应，H2_fixed 表示 L1-08 fixed-point FIR 补偿器。L1-09 首先读取该复数响应中的相位，执行 unwrap 后计算 group delay，再通过 least-squares 优化多级二阶 all-pass filter 的 pole radius 和 pole angle，使补偿后的 group delay 尽量接近常数。
 
-在当前 clean full pipeline run `full_combined_20260605_155348` 中，L1-09 前的 group delay ripple 为 `2.994724 ns`；floating-point all-pass 补偿后降为 `2.108406 ns`；fixed-point all-pass 补偿后为 `2.108794 ns`。因此当前 L1-09 已经降低 group delay ripple，但尚未完全拉平。fixed-point all-pass 的 pole 均位于单位圆内，`stable=True`，且 `saturation_count=0`，说明当前系数量化后滤波器数值稳定。
+在当前 clean full pipeline run `full_combined_20260605_090952` 中，L1-09 前的 group delay ripple 为 `2.994724 ns`；floating-point all-pass 补偿后降为 `2.108406 ns`；fixed-point all-pass 补偿后为 `2.108794 ns`。因此当前 L1-09 已经降低 group delay ripple，但尚未完全拉平。fixed-point all-pass 的 pole 均位于单位圆内，`stable=True`，且 `saturation_count=0`，说明当前系数量化后滤波器数值稳定。
 
 ---
 
@@ -29,7 +29,7 @@ pre_L1_09_response(f) = H1(f) * H2_fixed(f)
 | IIR | Infinite Impulse Response，无限冲激响应滤波器 |
 | SOS | Second-Order Section，二阶滤波器 section |
 | phase | 相位响应，单位 rad |
-| unwrap | 去除 phase 中的 2π 跳变，使相位曲线连续 |
+| unwrap | 去除 phase 中的 $2\pi$ 跳变，使相位曲线连续 |
 | group delay | 群时延，表示不同频率分量的传播延迟 |
 | pole | IIR filter 分母多项式的根，决定反馈系统稳定性 |
 | fixed-point | 固定 bit 宽的定点数表示 |
@@ -122,7 +122,7 @@ angle(Hpre(f))
 [-π, π]
 ```
 
-因此真实相位如果连续下降或上升超过 π，就会在图上出现突然跳变。unwrap 的作用是把这些人为的 `2π` 跳变去掉，让相位变成连续曲线。
+因此真实相位如果连续下降或上升超过 $\pi$，就会在图上出现突然跳变。unwrap 的作用是把这些人为的 $2\pi$ 跳变去掉，让相位变成连续曲线。
 
 例如 wrapped phase 可能类似：
 
@@ -489,7 +489,7 @@ residual(f) =
 当前 clean run 为：
 
 ```text
-full_combined_20260605_155348
+full_combined_20260605_090952
 ```
 
 主要 all-pass 设计结果如下：
@@ -506,9 +506,9 @@ full_combined_20260605_155348
 
 代表性图像如下：
 
-![L1-09 group delay before compensation](../graph/full_combined_20260605_155348/l1_09_fix_group_delay/group_delay_before_l1_09.png)
+![L1-09 group delay before compensation](../graph/full_combined_20260605_090952/l1_09_fix_group_delay/group_delay_before_l1_09.png)
 
-![L1-09 group delay before and after all-pass compensation](../graph/full_combined_20260605_155348/l1_09_fix_allpass_iir_fs/group_delay_before_after_l1_09.png)
+![L1-09 group delay before and after all-pass compensation](../graph/full_combined_20260605_090952/l1_09_fix_allpass_iir_fs/group_delay_before_after_l1_09.png)
 
 ---
 
@@ -610,7 +610,7 @@ max_pole_radius < 1  => stable=True
 
 因此在当前 Q3.15 系数格式下，系数量化本身没有明显破坏 L1-09 的补偿效果。
 
-![L1-09 fixed-point all-pass quantization](../graph/full_combined_20260605_155348/l1_09_fix_allpass_iir_fixed/allpass_fixed_quantization.png)
+![L1-09 fixed-point all-pass quantization](../graph/full_combined_20260605_090952/l1_09_fix_allpass_iir_fixed/allpass_fixed_quantization.png)
 
 ### 6.5 当前 Fixed-Point 仿真的限制
 
@@ -683,8 +683,8 @@ QAM EVM 更接近系统行为，但也更受信号构造、频率 bin、fitted d
 本次报告引用的 clean run 为：
 
 ```text
-data/full_combined_20260605_155348
-graph/full_combined_20260605_155348
+data/full_combined_20260605_090952
+graph/full_combined_20260605_090952
 ```
 
 主要 seed 为：
@@ -744,7 +744,7 @@ group delay ripple 降低量为：
 2. L1-09 主要降低 phase-only EVM。
 3. 加入 L1-09 后，EVM_LIN 从 `11.433072%` 降到 `1.185585%`，改善明显。
 
-![L1-09 fixed EVM_LIN](../graph/full_combined_20260605_155348/l1_09_fix_evm_lin_fixed/evm_lin.png)
+![L1-09 fixed EVM_LIN](../graph/full_combined_20260605_090952/l1_09_fix_evm_lin_fixed/evm_lin.png)
 
 ### 8.4 QAM EVM 结果
 
@@ -762,7 +762,7 @@ QAM EVM 从 `11.551006%` 降到 `3.396713%`，说明 L1-09 对相位相关失真
 
 因此本报告对 QAM 结果的解读是：L1-09 明显降低整体 QAM EVM，但 QAM magnitude-only 分量的变化还需要后续进一步验证。
 
-![L1-09 fixed QAM EVM](../graph/full_combined_20260605_155348/l1_09_fix_qam_evm_iir_fixed/l1_09_qam_evm.png)
+![L1-09 fixed QAM EVM](../graph/full_combined_20260605_090952/l1_09_fix_qam_evm_iir_fixed/l1_09_qam_evm.png)
 
 ---
 

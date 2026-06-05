@@ -139,8 +139,6 @@
 \date{}
 
 \begin{document}
-\maketitle
-
 \section{L1-09 群时延 All-Pass
 补偿算法行为级仿真报告}\label{l1-09-ux7fa4ux65f6ux5ef6-all-pass-ux8865ux507fux7b97ux6cd5ux884cux4e3aux7ea7ux4effux771fux62a5ux544a}
 
@@ -165,7 +163,7 @@ FIR 补偿器。L1-09 首先读取该复数响应中的相位，执行 unwrap �
 delay，再通过 least-squares 优化多级二阶 all-pass filter 的 pole radius
 和 pole angle，使补偿后的 group delay 尽量接近常数。
 
-在当前 clean full pipeline run \texttt{full\_combined\_20260605\_155348}
+在当前 clean full pipeline run \texttt{full\_combined\_20260605\_090952}
 中，L1-09 前的 group delay ripple 为
 \texttt{2.994724\ ns}；floating-point all-pass 补偿后降为
 \texttt{2.108406\ ns}；fixed-point all-pass 补偿后为
@@ -196,7 +194,7 @@ all-pass filter & 幅度恒为 1、只改变相位的滤波器 \\
 IIR & Infinite Impulse Response，无限冲激响应滤波器 \\
 SOS & Second-Order Section，二阶滤波器 section \\
 phase & 相位响应，单位 rad \\
-unwrap & 去除 phase 中的 2π 跳变，使相位曲线连续 \\
+unwrap & 去除 phase 中的 \(2\pi\) 跳变，使相位曲线连续 \\
 group delay & 群时延，表示不同频率分量的传播延迟 \\
 pole & IIR filter 分母多项式的根，决定反馈系统稳定性 \\
 fixed-point & 固定 bit 宽的定点数表示 \\
@@ -317,8 +315,8 @@ L1-09 关心的是 \texttt{Hpre(f)} 的 phase 和 group delay。
 [-\pi,\ \pi]
 \]
 
-因此真实相位如果连续下降或上升超过 π，就会在图上出现突然跳变。unwrap
-的作用是把这些人为的 \texttt{2π} 跳变去掉，让相位变成连续曲线。
+因此真实相位如果连续下降或上升超过 \(\pi\)，就会在图上出现突然跳变。unwrap
+的作用是把这些人为的 \(2\pi\) 跳变去掉，让相位变成连续曲线。
 
 例如 wrapped phase 可能类似：
 
@@ -748,7 +746,7 @@ all-pass 产生的 group delay 记为：
 
 \begin{Shaded}
 \begin{Highlighting}[]
-\NormalTok{full\_combined\_20260605\_155348}
+\NormalTok{full\_combined\_20260605\_090952}
 \end{Highlighting}
 \end{Shaded}
 
@@ -774,13 +772,13 @@ optimizer success & True \\
 
 \begin{figure}
 \centering
-\IfFileExists{../graph/full_combined_20260605_155348/l1_09_fix_group_delay/group_delay_before_l1_09.png}{\includegraphics{../graph/full_combined_20260605_155348/l1_09_fix_group_delay/group_delay_before_l1_09.png}}{\fbox{\parbox{0.86\linewidth}{\centering Image not found:\\ \ttfamily ../graph/full\_combined\_20260605\_155348/l1\_09\_fix\_group\_delay/group\_delay\_before\_l1\_09.png}}}
+\IfFileExists{../graph/full_combined_20260605_090952/l1_09_fix_group_delay/group_delay_before_l1_09.png}{\includegraphics{../graph/full_combined_20260605_090952/l1_09_fix_group_delay/group_delay_before_l1_09.png}}{\fbox{\parbox{0.86\linewidth}{\centering Image not found:\\ \ttfamily ../graph/full\_combined\_20260605\_090952/l1\_09\_fix\_group\_delay/group\_delay\_before\_l1\_09.png}}}
 \caption{L1-09 group delay before compensation}
 \end{figure}
 
 \begin{figure}
 \centering
-\IfFileExists{../graph/full_combined_20260605_155348/l1_09_fix_allpass_iir_fs/group_delay_before_after_l1_09.png}{\includegraphics{../graph/full_combined_20260605_155348/l1_09_fix_allpass_iir_fs/group_delay_before_after_l1_09.png}}{\fbox{\parbox{0.86\linewidth}{\centering Image not found:\\ \ttfamily ../graph/full\_combined\_20260605\_155348/l1\_09\_fix\_allpass\_iir\_fs/group\_delay\_before\_after\_l1\_09.png}}}
+\IfFileExists{../graph/full_combined_20260605_090952/l1_09_fix_allpass_iir_fs/group_delay_before_after_l1_09.png}{\includegraphics{../graph/full_combined_20260605_090952/l1_09_fix_allpass_iir_fs/group_delay_before_after_l1_09.png}}{\fbox{\parbox{0.86\linewidth}{\centering Image not found:\\ \ttfamily ../graph/full\_combined\_20260605\_090952/l1\_09\_fix\_allpass\_iir\_fs/group\_delay\_before\_after\_l1\_09.png}}}
 \caption{L1-09 group delay before and after all-pass compensation}
 \end{figure}
 
@@ -913,7 +911,7 @@ fixed vs float compensated GD max error & 0.000869 ns \\
 
 \begin{figure}
 \centering
-\IfFileExists{../graph/full_combined_20260605_155348/l1_09_fix_allpass_iir_fixed/allpass_fixed_quantization.png}{\includegraphics{../graph/full_combined_20260605_155348/l1_09_fix_allpass_iir_fixed/allpass_fixed_quantization.png}}{\fbox{\parbox{0.86\linewidth}{\centering Image not found:\\ \ttfamily ../graph/full\_combined\_20260605\_155348/l1\_09\_fix\_allpass\_iir\_fixed/allpass\_fixed\_quantization.png}}}
+\IfFileExists{../graph/full_combined_20260605_090952/l1_09_fix_allpass_iir_fixed/allpass_fixed_quantization.png}{\includegraphics{../graph/full_combined_20260605_090952/l1_09_fix_allpass_iir_fixed/allpass_fixed_quantization.png}}{\fbox{\parbox{0.86\linewidth}{\centering Image not found:\\ \ttfamily ../graph/full\_combined\_20260605\_090952/l1\_09\_fix\_allpass\_iir\_fixed/allpass\_fixed\_quantization.png}}}
 \caption{L1-09 fixed-point all-pass quantization}
 \end{figure}
 
@@ -1004,8 +1002,8 @@ alignment 影响。
 
 \begin{Shaded}
 \begin{Highlighting}[]
-\NormalTok{data/full\_combined\_20260605\_155348}
-\NormalTok{graph/full\_combined\_20260605\_155348}
+\NormalTok{data/full\_combined\_20260605\_090952}
+\NormalTok{graph/full\_combined\_20260605\_090952}
 \end{Highlighting}
 \end{Shaded}
 
@@ -1116,7 +1114,7 @@ after L1-08 fixed FIR + L1-09 all-pass & 1.185585\% & 0.242099\% &
 
 \begin{figure}
 \centering
-\IfFileExists{../graph/full_combined_20260605_155348/l1_09_fix_evm_lin_fixed/evm_lin.png}{\includegraphics{../graph/full_combined_20260605_155348/l1_09_fix_evm_lin_fixed/evm_lin.png}}{\fbox{\parbox{0.86\linewidth}{\centering Image not found:\\ \ttfamily ../graph/full\_combined\_20260605\_155348/l1\_09\_fix\_evm\_lin\_fixed/evm\_lin.png}}}
+\IfFileExists{../graph/full_combined_20260605_090952/l1_09_fix_evm_lin_fixed/evm_lin.png}{\includegraphics{../graph/full_combined_20260605_090952/l1_09_fix_evm_lin_fixed/evm_lin.png}}{\fbox{\parbox{0.86\linewidth}{\centering Image not found:\\ \ttfamily ../graph/full\_combined\_20260605\_090952/l1\_09\_fix\_evm\_lin\_fixed/evm\_lin.png}}}
 \caption{L1-09 fixed EVM\_LIN}
 \end{figure}
 
@@ -1150,7 +1148,7 @@ magnitude-only 分量的变化还需要后续进一步验证。
 
 \begin{figure}
 \centering
-\IfFileExists{../graph/full_combined_20260605_155348/l1_09_fix_qam_evm_iir_fixed/l1_09_qam_evm.png}{\includegraphics{../graph/full_combined_20260605_155348/l1_09_fix_qam_evm_iir_fixed/l1_09_qam_evm.png}}{\fbox{\parbox{0.86\linewidth}{\centering Image not found:\\ \ttfamily ../graph/full\_combined\_20260605\_155348/l1\_09\_fix\_qam\_evm\_iir\_fixed/l1\_09\_qam\_evm.png}}}
+\IfFileExists{../graph/full_combined_20260605_090952/l1_09_fix_qam_evm_iir_fixed/l1_09_qam_evm.png}{\includegraphics{../graph/full_combined_20260605_090952/l1_09_fix_qam_evm_iir_fixed/l1_09_qam_evm.png}}{\fbox{\parbox{0.86\linewidth}{\centering Image not found:\\ \ttfamily ../graph/full\_combined\_20260605\_090952/l1\_09\_fix\_qam\_evm\_iir\_fixed/l1\_09\_qam\_evm.png}}}
 \caption{L1-09 fixed QAM EVM}
 \end{figure}
 
