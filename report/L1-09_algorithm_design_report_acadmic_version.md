@@ -136,7 +136,7 @@ unwrap 后会变成：
 2.9, 3.1, 3.283, 3.483
 ```
 
-unwrap 不改变真实物理相位，只是把相位表示方式从“折叠形式”改成“连续形式”。这是计算 group delay 之前必须做的步骤。
+unwrap 不改变真实物理相位，只是把相位表示方式从“折叠形式”改成“连续形式”。这是计算 group delay 之前必须做的步骤, 避免对信号跳变求导。
 
 ### 3.3 Group Delay 定义
 
@@ -352,8 +352,6 @@ graph/  保存 png 图像文件
 data/full_combined_YYYYMMDD_HHMMSS/
 graph/full_combined_YYYYMMDD_HHMMSS/
 ```
-
-需要注意，当前 L1-09 的 all-pass design、fixed-point quantization、EVM_LIN 和 QAM EVM 脚本仍会把部分 response / metrics CSV 与对应图像一起写入 `graph/<run>/...` 子目录中。这样做的好处是图像和产生该图像的数据紧密对应，缺点是还没有完全做到“所有 CSV 都只在 data/，所有 PNG 都只在 graph/”。因此本文后续路径描述以当前程序实际输出为准。
 
 L1-09 主要输入包括：
 
@@ -760,12 +758,7 @@ group delay ripple 降低量为：
 
 QAM EVM 从 `11.551006%` 降到 `3.396713%`，说明 L1-09 对相位相关失真有明显改善。但是 magnitude-only EVM 在加入 L1-09 后变大，这需要谨慎解释。
 
-理论上 all-pass filter 幅度恒为 1，不应该改变 magnitude response。当前 QAM magnitude-only EVM 变大的可能原因包括：
-
-1. QAM 验证中的 fitted delay / gain alignment 对 all-pass 后的频率相关相位更敏感。
-2. 当前 QAM 验证是行为级验证，不是单纯读取 all-pass magnitude response。
-3. IIR all-pass 的时域 transient、settling 和有限采样窗口可能影响 QAM 测量。
-4. 当前 `iir_settle_blocks = 0`，后续可以增加 settle blocks 验证该现象是否减弱。
+理论上 all-pass filter 幅度恒为 1，不应该改变 magnitude response。当前 QAM magnitude-only EVM 变大的原因可能是All pass filter 初始化的 past output 如 y[n-1] (n = 0) 时设置成为0，也可能是其他原因，后续会意义判断
 
 因此本报告对 QAM 结果的解读是：L1-09 明显降低整体 QAM EVM，但 QAM magnitude-only 分量的变化还需要后续进一步验证。
 
@@ -798,7 +791,6 @@ QAM EVM 从 `11.551006%` 降到 `3.396713%`，说明 L1-09 对相位相关失真
 
 1. 增加 L1-09 sweep，覆盖 all-pass section count、fixed-point format、seed case 和 bandwidth profile。
 2. 对比 6、8、10 个 all-pass section 在不同 H1 phase distortion 下的稳定性和补偿效果。
-3. 增加 `iir_settle_blocks` 对 QAM EVM 的影响分析，确认 IIR transient 是否影响当前 QAM magnitude-only 结果。
+3. 当前 QAM magnitude-only 经过 L1-08+L1-09 增大的结果。
 4. 建立完整 RTL 级 fixed-point 仿真，包括 I/Q input quantization、乘法器、加法器、accumulator、delay register 和逐级 rounding / saturation。
 5. 将 L1-08 和 L1-09 的指标统一汇总，包括 magnitude ripple、group delay ripple、EVM_LIN、QAM EVM 和 fixed-point stability。
-6. 后续如果有真实硬件测量 H1 数据，应使用真实 H1 替代随机 H1，再验证 L1-09 对实际链路的补偿效果。
