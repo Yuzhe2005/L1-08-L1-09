@@ -1,12 +1,12 @@
-// Base Plan L1-09 — synthesizable RTL (coeff preload on reset, method A).
+// Base Plan L1-09 synthesizable RTL (coeff preload on reset, method A).
 //
 // Coefficients: async reset loads all SECTION_COUNT SOS rows from
 //   coeff/l1_09_allpass_coeff_reset.svh (regenerate from allpass_coefficients_fixed.csv).
 //
-// Structure: 8-section cascaded 2nd-order all-pass IIR (Direct Form I), real coeffs on I/Q.
+// Structure: 64-section cascaded 2nd-order all-pass IIR (Direct Form I), real coeffs on I/Q.
 // Reference: scipy.signal.sosfilt cold-start, L1_09_fixed_point_quantizer.py (Q3.15).
 //
-// Pipeline: wavefront — one biquad section per clock, IIR_LATENCY = SECTION_COUNT.
+// Pipeline: wavefront, one biquad section per clock, IIR_LATENCY = SECTION_COUNT.
 
 import base_plan_l1_09_pkg::*;
 

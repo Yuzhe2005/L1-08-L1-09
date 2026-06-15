@@ -1,11 +1,11 @@
 // Base Plan L1-09 shared constants (synthesizable).
-// Golden reference: bw_1g_seed_a / 8 sections / Q3.15 sweep combo.
+// Golden reference: base_plan_pipeline_data_20260615_150846 / bw_1g / 64 sections / Q3.15.
 // Regenerate coeff/l1_09_allpass_coeff_reset.svh when these change.
 
 package base_plan_l1_09_pkg;
 
-    // All-pass IIR geometry (config_base_plan.json: l1_09.allpass.sections = 8)
-    localparam int SECTION_COUNT_DEFAULT      = 8;
+    // All-pass IIR geometry (config_base_plan.json: l1_09.allpass.sections = 64)
+    localparam int SECTION_COUNT_DEFAULT      = 64;
     localparam int IIR_STATE_SAMPLES_PER_SEC  = 2;
 
     // I/Q datapath (aligned with L1-08 output / ADC width)
