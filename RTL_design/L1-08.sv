@@ -279,6 +279,7 @@ module L1_08 #(
             end
 
             mac_valid_pipe <= {mac_valid_pipe[MAC_LATENCY-2:0], mac_valid_in};
+            //might have potential clock align error
 
             if (in_valid && coeffs_ready && bypass) begin
                 o_i     <= i_in;
