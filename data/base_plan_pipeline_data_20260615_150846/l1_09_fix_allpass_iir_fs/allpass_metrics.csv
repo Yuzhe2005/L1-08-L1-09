@@ -1,0 +1,18 @@
+metric,value
+input_csv,C:\Users\bjwb0005\Documents\Rigol_work\L1-08+L1-09\data\base_plan_pipeline_data_20260615_150846\l1_09_fix_group_delay\group_delay_analysis.csv
+design_model,fs_based_time_domain_iir
+optimization_uses_raw_group_delay,True
+optimization_targets_input_ripple_cancellation,True
+fs_hz,24000000000.000000
+section_count,64
+target_delay_ns,15.164223649
+target_margin_ns,0.132313485
+original_group_delay_ripple_pp_ns,2.646269705
+original_group_delay_rms_around_mean_ns,0.502091284
+compensated_group_delay_ripple_pp_ns,1.515481508
+compensated_group_delay_ripple_pp_max_ns,0.200000000
+meets_compensated_ripple_target,False
+compensated_group_delay_rms_to_target_ns,0.227811235
+optimizer_cost,8.859496004736e-01
+optimizer_success,True
+optimizer_message,`ftol` termination condition is satisfied.

@@ -27,7 +27,7 @@ import matplotlib.pyplot as plt
 from complex_fir_designer import STAGE_NAME as PLAN_B_STAGE_NAME
 from complex_fir_designer import complex_fir_frequency_response
 from complex_fir_designer import resolve_run_dir
-from shared_sim.config import get_active_config_value, get_input_config_value, plan_b_value
+from shared_sim.config import get_active_config_value, get_common_config_value, get_input_config_value, plan_b_value
 from shared_sim.io_utils import find_latest_h1_run, save_iq_csv
 from shared_sim.qam_utils import (
     EvmMetric,
@@ -413,7 +413,7 @@ def save_plan_b_qam_outputs(run: PlanBQamEvmRun, save_iq: bool) -> None:
 
 
 def parse_args() -> argparse.Namespace:
-    default_fs_hz = float(plan_b_value("design", "fs_hz", 12e9))
+    default_fs_hz = float(get_common_config_value("fs_hz", plan_b_value("design", "fs_hz", 12e9)))
     default_samples = int(get_input_config_value("qam_evm", "samples", get_active_config_value("behavior", "samples", 65536)))
     default_freq_min_hz = float(
         get_input_config_value("qam_evm", "freq_min_hz", get_active_config_value("behavior", "tone_min_hz", 3.55e9))

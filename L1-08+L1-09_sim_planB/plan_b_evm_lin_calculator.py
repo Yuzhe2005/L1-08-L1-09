@@ -36,7 +36,7 @@ from complex_fir_designer import (
     resolve_run_dir,
     run_plan_b_case,
 )
-from shared_sim.config import get_active_config_value, get_input_config_value, plan_b_value
+from shared_sim.config import get_active_config_value, get_common_config_value, get_input_config_value, plan_b_value
 from shared_sim.io_utils import find_latest_h1_run
 from shared_sim.run_summary import update_run_summary
 
@@ -628,7 +628,7 @@ def run_sweep_test(args: argparse.Namespace) -> Path:
 
 
 def parse_args() -> argparse.Namespace:
-    default_fs_hz = float(plan_b_value("design", "fs_hz", 12e9))
+    default_fs_hz = float(get_common_config_value("fs_hz", plan_b_value("design", "fs_hz", 12e9)))
     default_freq_min_hz, default_freq_max_hz = default_qam_band()
 
     parser = argparse.ArgumentParser(description="Estimate Plan B EVM_LIN from residual linear frequency response.")

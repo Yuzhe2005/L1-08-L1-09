@@ -1,0 +1,18 @@
+metric,value
+input_csv,C:\Users\bjwb0005\Documents\Rigol_work\L1-08+L1-09\data\base_plan_pipeline_data_20260615_152012\l1_09_fix_group_delay\group_delay_analysis.csv
+design_model,fs_based_time_domain_iir
+optimization_uses_raw_group_delay,True
+optimization_targets_input_ripple_cancellation,True
+fs_hz,24000000000.000000
+section_count,64
+target_delay_ns,13.883519069
+target_margin_ns,0.205263124
+original_group_delay_ripple_pp_ns,4.105262482
+original_group_delay_rms_around_mean_ns,0.990766404
+compensated_group_delay_ripple_pp_ns,4.127881417
+compensated_group_delay_ripple_pp_max_ns,0.200000000
+meets_compensated_ripple_target,False
+compensated_group_delay_rms_to_target_ns,0.531508823
+optimizer_cost,3.295148034661e+00
+optimizer_success,False
+optimizer_message,The maximum number of function evaluations is exceeded.

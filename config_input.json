@@ -1,11 +1,11 @@
 {
-  "selected_profile": null,
+  "selected_profile": "bw_1g",
   "active": {
     "common": {
       "fs_hz": 12000000000.0
     },
     "h1": {
-      "seed": 9112043
+      "seed": 1571318759
     },
     "h1_random_model": {
       "frequency_grid": {
@@ -94,7 +94,7 @@
       "tone_min_hz": 3550000000.0,
       "tone_max_hz": 4450000000.0,
       "peak_amplitude": 0.8,
-      "seed": 1401186327
+      "seed": 1925817879
     },
     "qam_evm": {
       "samples": 65536,
@@ -102,7 +102,7 @@
       "freq_max_hz": 4450000000.0,
       "qam_order": 64,
       "peak_amplitude": 0.8,
-      "seed": 703592441,
+      "seed": 140927704,
       "max_constellation_points": 3000
     }
   },
@@ -177,7 +177,7 @@
         "fs_hz": 24000000000.0
       },
       "h1": {
-        "seed": 297216821
+        "seed": 1991929761
       },
       "h1_random_model": {
         "frequency_grid": {
@@ -189,12 +189,12 @@
       "behavior": {
         "tone_min_hz": 5550000000.0,
         "tone_max_hz": 6450000000.0,
-        "seed": 953625061
+        "seed": 1636938305
       },
       "qam_evm": {
         "freq_min_hz": 5550000000.0,
         "freq_max_hz": 6450000000.0,
-        "seed": 453249928
+        "seed": 876555241
       }
     },
     "bw_2g": {

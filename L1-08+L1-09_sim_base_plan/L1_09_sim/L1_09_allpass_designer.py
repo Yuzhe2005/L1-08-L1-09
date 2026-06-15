@@ -44,7 +44,6 @@ class AllPassDesign:
     section_count: int
     target_delay_ns: float
     margin_ns: float
-    smooth_window: int
     r_values: np.ndarray
     theta_values_rad: np.ndarray
     center_freq_hz: np.ndarray
@@ -54,6 +53,8 @@ class AllPassDesign:
     compensated_group_delay_ns: np.ndarray
     compensated_ripple_pp_ns: float
     compensated_rms_error_ns: float
+    compensated_ripple_pp_max_ns: float
+    meets_compensated_ripple_target: bool
     optimizer_cost: float
     optimizer_success: bool
     optimizer_message: str
@@ -140,21 +141,6 @@ def fs_based_digital_frequency(freq_hz: np.ndarray, fs_hz: float) -> np.ndarray:
     return 2.0 * np.pi * freq_hz / fs_hz
 
 
-def moving_average(values: np.ndarray, window: int) -> np.ndarray:
-    if window <= 1:
-        return values.copy()
-    if window % 2 == 0:
-        window += 1
-    window = min(window, values.size if values.size % 2 == 1 else values.size - 1)
-    if window <= 1:
-        return values.copy()
-
-    pad = window // 2
-    padded = np.pad(values, pad_width=pad, mode="edge")
-    kernel = np.ones(window, dtype=float) / float(window)
-    return np.convolve(padded, kernel, mode="valid")
-
-
 def second_order_allpass_response(
     digital_w_rad: np.ndarray,
     r_values: np.ndarray,
@@ -184,33 +170,69 @@ def response_phase_and_delay_ns(
     return phase_rad, delay_s * 1e9
 
 
-def pack_params(r_values: np.ndarray, theta_values_rad: np.ndarray) -> np.ndarray:
-    return np.concatenate([r_values, theta_values_rad])
-
-
-def unpack_params(params: np.ndarray, section_count: int) -> tuple[np.ndarray, np.ndarray]:
-    r_values = params[:section_count]
-    theta_values_rad = params[section_count:]
-    return r_values, theta_values_rad
-
-
-def initial_params(section_count: int, digital_w_rad: np.ndarray) -> np.ndarray:
-    r_values = np.full(section_count, 0.55, dtype=float)
-    theta_values = np.linspace(float(digital_w_rad[0]), float(digital_w_rad[-1]), section_count)
-    return pack_params(r_values, theta_values)
-
-
-def parameter_bounds(section_count: int, digital_w_rad: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    r_low = np.full(section_count, 0.05, dtype=float)
-    r_high = np.full(section_count, 0.98, dtype=float)
+def theta_limits(digital_w_rad: np.ndarray) -> tuple[float, float]:
     band_low = float(digital_w_rad[0])
     band_high = float(digital_w_rad[-1])
     band_span = band_high - band_low
     theta_min = max(0.02 * np.pi, band_low - 0.2 * band_span)
     theta_max = min(0.98 * np.pi, band_high + 0.2 * band_span)
-    theta_low = np.full(section_count, theta_min, dtype=float)
-    theta_high = np.full(section_count, theta_max, dtype=float)
-    return pack_params(r_low, theta_low), pack_params(r_high, theta_high)
+    return theta_min, theta_max
+
+
+def ordered_thetas_from_gap_logits(
+    gap_logits: np.ndarray,
+    theta_min: float,
+    theta_max: float,
+    section_count: int,
+) -> np.ndarray:
+    if section_count == 1:
+        return np.asarray([(theta_min + theta_max) * 0.5], dtype=float)
+    if gap_logits.size != section_count - 1:
+        raise ValueError("gap_logits must have length section_count - 1.")
+
+    span = theta_max - theta_min
+    gap_count = section_count - 1
+    # Keep every adjacent section separated; softmax alone can still collapse gaps to zero.
+    min_gap = span / (4.0 * section_count)
+    reserved_span = min_gap * gap_count
+    if reserved_span >= span:
+        min_gap = 0.25 * span / gap_count
+        reserved_span = min_gap * gap_count
+    free_span = span - reserved_span
+
+    weights = np.exp(gap_logits - np.max(gap_logits))
+    extra_gaps = free_span * weights / np.sum(weights)
+    gaps = min_gap + extra_gaps
+    return theta_min + np.concatenate([np.asarray([0.0]), np.cumsum(gaps)])
+
+
+def pack_params(r_values: np.ndarray, gap_logits: np.ndarray) -> np.ndarray:
+    if gap_logits.size:
+        return np.concatenate([r_values, gap_logits])
+    return r_values.copy()
+
+
+def unpack_params(params: np.ndarray, section_count: int) -> tuple[np.ndarray, np.ndarray]:
+    r_values = params[:section_count]
+    gap_logits = params[section_count : 2 * section_count - 1]
+    return r_values, gap_logits
+
+
+def initial_params(section_count: int, digital_w_rad: np.ndarray) -> np.ndarray:
+    r_values = np.full(section_count, 0.55, dtype=float)
+    gap_logits = np.zeros(max(section_count - 1, 0), dtype=float)
+    return pack_params(r_values, gap_logits)
+
+
+def parameter_bounds(section_count: int, digital_w_rad: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    r_low = np.full(section_count, 0.30, dtype=float)
+    r_high = np.full(section_count, 0.98, dtype=float)
+    if section_count == 1:
+        return r_low, r_high
+
+    gap_low = np.full(section_count - 1, -8.0, dtype=float)
+    gap_high = np.full(section_count - 1, 8.0, dtype=float)
+    return pack_params(r_low, gap_low), pack_params(r_high, gap_high)
 
 
 def design_allpass(
@@ -219,48 +241,41 @@ def design_allpass(
     fs_hz: float,
     section_count: int,
     margin_ns: float | None,
-    smooth_window: int,
+    compensated_ripple_pp_max_ns: float = 0.2,
 ) -> AllPassDesign:
     if section_count < 1:
         raise ValueError("section_count must be at least 1.")
+    if compensated_ripple_pp_max_ns <= 0.0:
+        raise ValueError("compensated_ripple_pp_max_ns must be positive.")
 
-    fit_delay_ns = moving_average(input_data.group_delay_ns, smooth_window)
-    original_ripple_ns = float(np.max(fit_delay_ns) - np.min(fit_delay_ns))
+    original_delay_ns = input_data.group_delay_ns
+    original_ripple_ns = float(np.max(original_delay_ns) - np.min(original_delay_ns))
+    original_shape_ns = original_delay_ns - np.mean(original_delay_ns)
+    ripple_scale_ns = max(original_ripple_ns, 1.0)
+    ripple_weights = 0.25 + 0.75 * (np.abs(original_shape_ns) / max(np.max(np.abs(original_shape_ns)), 1e-9))
     resolved_margin_ns = margin_ns
     if resolved_margin_ns is None:
         resolved_margin_ns = max(0.05, 0.05 * original_ripple_ns)
 
-    target_delay_ns = float(np.max(fit_delay_ns) + resolved_margin_ns)
     digital_w = fs_based_digital_frequency(input_data.freq_hz, fs_hz)
-
-    initial_r_values, initial_theta_values = unpack_params(initial_params(section_count, digital_w), section_count)
-    _, initial_ap_delay_ns = response_phase_and_delay_ns(
-        digital_w,
-        input_data.omega_rad,
-        initial_r_values,
-        initial_theta_values,
-    )
-    initial_target_delay_ns = max(target_delay_ns, float(np.mean(fit_delay_ns + initial_ap_delay_ns)))
-    target_lower_ns = target_delay_ns
-    target_upper_ns = target_lower_ns + max(10.0, 3.0 * float(section_count))
+    theta_min, theta_max = theta_limits(digital_w)
 
     def residual(params: np.ndarray) -> np.ndarray:
-        r_values, theta_values = unpack_params(params[:-1], section_count)
-        candidate_target_delay_ns = params[-1]
+        r_values, gap_logits = unpack_params(params, section_count)
+        theta_values = ordered_thetas_from_gap_logits(gap_logits, theta_min, theta_max, section_count)
         _, ap_delay_ns = response_phase_and_delay_ns(
             digital_w,
             input_data.omega_rad,
             r_values,
             theta_values,
         )
-        compensated_delay_ns = fit_delay_ns + ap_delay_ns
-        # Scale keeps the optimizer numerically comfortable while preserving ns units.
-        return (compensated_delay_ns - candidate_target_delay_ns) / max(original_ripple_ns, 1.0)
+        ap_shape_ns = ap_delay_ns - np.mean(ap_delay_ns)
+        # Drive τ_AP shape toward -τ_pre shape so compensated GD ripple is flattened.
+        ripple_cancel_error_ns = ap_shape_ns + original_shape_ns
+        return ripple_weights * ripple_cancel_error_ns / ripple_scale_ns
 
     lower, upper = parameter_bounds(section_count, digital_w)
-    lower = np.concatenate([lower, np.asarray([target_lower_ns])])
-    upper = np.concatenate([upper, np.asarray([target_upper_ns])])
-    x0 = np.concatenate([initial_params(section_count, digital_w), np.asarray([initial_target_delay_ns])])
+    x0 = initial_params(section_count, digital_w)
     result = least_squares(
         residual,
         x0,
@@ -271,8 +286,8 @@ def design_allpass(
         gtol=1e-10,
     )
 
-    r_values, theta_values = unpack_params(result.x[:-1], section_count)
-    target_delay_ns = float(result.x[-1])
+    r_values, gap_logits = unpack_params(result.x, section_count)
+    theta_values = ordered_thetas_from_gap_logits(gap_logits, theta_min, theta_max, section_count)
     order = np.argsort(theta_values)
     r_values = r_values[order]
     theta_values = theta_values[order]
@@ -287,9 +302,11 @@ def design_allpass(
     compensated_phase_rad = input_data.phase_rad + allpass_phase
     center_freq_hz = theta_values * fs_hz / (2.0 * np.pi)
 
+    target_delay_ns = float(np.mean(compensated_group_delay_ns))
     compensated_error = compensated_group_delay_ns - target_delay_ns
     compensated_ripple_pp_ns = float(np.max(compensated_group_delay_ns) - np.min(compensated_group_delay_ns))
     compensated_rms_error_ns = float(np.sqrt(np.mean(compensated_error**2)))
+    meets_compensated_ripple_target = compensated_ripple_pp_ns <= compensated_ripple_pp_max_ns
 
     return AllPassDesign(
         input_data=input_data,
@@ -298,7 +315,6 @@ def design_allpass(
         section_count=section_count,
         target_delay_ns=target_delay_ns,
         margin_ns=float(resolved_margin_ns),
-        smooth_window=smooth_window,
         r_values=r_values,
         theta_values_rad=theta_values,
         center_freq_hz=center_freq_hz,
@@ -308,6 +324,8 @@ def design_allpass(
         compensated_group_delay_ns=compensated_group_delay_ns,
         compensated_ripple_pp_ns=compensated_ripple_pp_ns,
         compensated_rms_error_ns=compensated_rms_error_ns,
+        compensated_ripple_pp_max_ns=float(compensated_ripple_pp_max_ns),
+        meets_compensated_ripple_target=meets_compensated_ripple_target,
         optimizer_cost=float(result.cost),
         optimizer_success=bool(result.success),
         optimizer_message=str(result.message),
@@ -426,14 +444,17 @@ def save_metrics_csv(design: AllPassDesign, output_csv: Path) -> None:
         writer.writerow(["metric", "value"])
         writer.writerow(["input_csv", str(design.input_data.input_csv)])
         writer.writerow(["design_model", "fs_based_time_domain_iir"])
+        writer.writerow(["optimization_uses_raw_group_delay", True])
+        writer.writerow(["optimization_targets_input_ripple_cancellation", True])
         writer.writerow(["fs_hz", f"{design.fs_hz:.6f}"])
         writer.writerow(["section_count", design.section_count])
         writer.writerow(["target_delay_ns", f"{design.target_delay_ns:.9f}"])
         writer.writerow(["target_margin_ns", f"{design.margin_ns:.9f}"])
-        writer.writerow(["smooth_window", design.smooth_window])
         writer.writerow(["original_group_delay_ripple_pp_ns", f"{original_ripple:.9f}"])
         writer.writerow(["original_group_delay_rms_around_mean_ns", f"{original_rms:.9f}"])
         writer.writerow(["compensated_group_delay_ripple_pp_ns", f"{design.compensated_ripple_pp_ns:.9f}"])
+        writer.writerow(["compensated_group_delay_ripple_pp_max_ns", f"{design.compensated_ripple_pp_max_ns:.9f}"])
+        writer.writerow(["meets_compensated_ripple_target", design.meets_compensated_ripple_target])
         writer.writerow(["compensated_group_delay_rms_to_target_ns", f"{design.compensated_rms_error_ns:.9f}"])
         writer.writerow(["optimizer_cost", f"{design.optimizer_cost:.12e}"])
         writer.writerow(["optimizer_success", design.optimizer_success])
@@ -477,7 +498,9 @@ def parse_args() -> argparse.Namespace:
     default_fs_hz = float(get_common_config_value("fs_hz", 12e9))
     default_sections = int(get_l1_09_config_value("allpass", "sections", 4))
     default_margin_ns = get_l1_09_config_value("allpass", "margin_ns", None)
-    default_smooth_window = int(get_l1_09_config_value("allpass", "smooth_window", 31))
+    default_compensated_ripple_pp_max_ns = float(
+        get_l1_09_config_value("allpass", "compensated_ripple_pp_max_ns", 0.2)
+    )
     parser = argparse.ArgumentParser(description="Design an fs-based floating multi-section second-order all-pass IIR equalizer.")
     parser.add_argument(
         "--input-csv",
@@ -508,13 +531,16 @@ def parse_args() -> argparse.Namespace:
         "--margin-ns",
         type=float,
         default=default_margin_ns,
-        help="Delay margin above max group delay. Defaults to max(0.05 ns, 5%% of smoothed ripple).",
+        help="Delay margin above max group delay. Defaults to max(0.05 ns, 5%% of raw ripple).",
     )
     parser.add_argument(
-        "--smooth-window",
-        type=int,
-        default=default_smooth_window,
-        help=f"Odd moving-average window used only for fitting the target delay shape. Default from config_base_plan.json: {default_smooth_window}.",
+        "--compensated-ripple-pp-max-ns",
+        type=float,
+        default=default_compensated_ripple_pp_max_ns,
+        help=(
+            "Pass/fail threshold for raw compensated group-delay ripple peak-to-peak in ns. "
+            f"Default from config_base_plan.json: {default_compensated_ripple_pp_max_ns:.6g}."
+        ),
     )
     return parser.parse_args()
 
@@ -532,7 +558,7 @@ def main() -> None:
         fs_hz=args.fs_hz,
         section_count=args.sections,
         margin_ns=args.margin_ns,
-        smooth_window=args.smooth_window,
+        compensated_ripple_pp_max_ns=args.compensated_ripple_pp_max_ns,
     )
 
     coefficients_csv = output_dir / "allpass_coefficients.csv"
@@ -554,6 +580,8 @@ def main() -> None:
     print(f"section_count: {design.section_count}")
     print(f"target_delay_ns: {design.target_delay_ns:.9f}")
     print(f"compensated_group_delay_ripple_pp_ns: {design.compensated_ripple_pp_ns:.9f}")
+    print(f"compensated_group_delay_ripple_pp_max_ns: {design.compensated_ripple_pp_max_ns:.9f}")
+    print(f"meets_compensated_ripple_target: {design.meets_compensated_ripple_target}")
     print(f"compensated_group_delay_rms_to_target_ns: {design.compensated_rms_error_ns:.9f}")
     print(f"optimizer_success: {design.optimizer_success}")
     print(f"coefficients_csv: {coefficients_csv}")

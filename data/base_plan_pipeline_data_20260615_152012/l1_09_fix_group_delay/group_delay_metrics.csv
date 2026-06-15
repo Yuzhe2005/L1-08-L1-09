@@ -1,0 +1,11 @@
+metric,value
+signal_model,pre_l1_09_response = H1 * H2_fixed
+h1_csv,C:\Users\bjwb0005\Documents\Rigol_work\L1-08+L1-09\data\base_plan_pipeline_data_20260615_152012\h1_full_combined_random\together.csv
+h2_fixed_response_csv,C:\Users\bjwb0005\Documents\Rigol_work\L1-08+L1-09\data\base_plan_pipeline_data_20260615_152012\l1_08_h2_fixed_point\h2_fixed_point_response.csv
+run_name,base_plan_pipeline_data_20260615_152012
+point_count,1001
+f_min_hz,5500000000.000000
+f_max_hz,6500000000.000000
+group_delay_mean_ns,3.814851983
+group_delay_ripple_pp_ns,4.105262482
+group_delay_rms_error_ns,0.990766404

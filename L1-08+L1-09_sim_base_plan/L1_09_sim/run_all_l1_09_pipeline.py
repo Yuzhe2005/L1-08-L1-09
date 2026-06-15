@@ -77,7 +77,6 @@ def build_stages(
     skip_qam_evm: bool,
     allpass_sections: int,
     allpass_margin_ns: float | None,
-    allpass_smooth_window: int,
     coeff_total_bits: int,
     coeff_frac_bits: int,
 ) -> list[PipelineStage]:
@@ -128,8 +127,6 @@ def build_stages(
                 str(allpass_graph_dir),
                 "--sections",
                 str(allpass_sections),
-                "--smooth-window",
-                str(allpass_smooth_window),
                 *(
                     ["--margin-ns", f"{allpass_margin_ns:.12g}"]
                     if allpass_margin_ns is not None
@@ -264,7 +261,6 @@ def main() -> None:
     modes = validation_modes(validation_coeff_mode)
     allpass_sections = int(get_l1_09_config_value("allpass", "sections", 8))
     allpass_margin_ns = get_l1_09_config_value("allpass", "margin_ns", None)
-    allpass_smooth_window = int(get_l1_09_config_value("allpass", "smooth_window", 31))
     coeff_total_bits = int(get_l1_09_config_value("fixed_point", "coeff_total_bits", 18))
     coeff_frac_bits = int(get_l1_09_config_value("fixed_point", "coeff_frac_bits", 15))
     skip_evm_lin = bool(base_value("run", "skip_evm_lin", False))
@@ -277,7 +273,6 @@ def main() -> None:
         skip_qam_evm=skip_qam_evm,
         allpass_sections=allpass_sections,
         allpass_margin_ns=allpass_margin_ns,
-        allpass_smooth_window=allpass_smooth_window,
         coeff_total_bits=coeff_total_bits,
         coeff_frac_bits=coeff_frac_bits,
     )
@@ -288,7 +283,6 @@ def main() -> None:
     print(f"validation_coeff_mode: {validation_coeff_mode}", flush=True)
     print(f"allpass_sections: {allpass_sections}", flush=True)
     print(f"allpass_margin_ns: {allpass_margin_ns}", flush=True)
-    print(f"allpass_smooth_window: {allpass_smooth_window}", flush=True)
     print(f"coeff_total_bits: {coeff_total_bits}", flush=True)
     print(f"coeff_frac_bits: {coeff_frac_bits}", flush=True)
     print(f"stage_count: {len(stages)}", flush=True)
@@ -306,7 +300,6 @@ def main() -> None:
             "validation_modes": modes,
             "allpass_sections": allpass_sections,
             "allpass_margin_ns": allpass_margin_ns,
-            "allpass_smooth_window": allpass_smooth_window,
             "coeff_total_bits": coeff_total_bits,
             "coeff_frac_bits": coeff_frac_bits,
             "skip_evm_lin": skip_evm_lin,

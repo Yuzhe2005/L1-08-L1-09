@@ -4,7 +4,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-import shared_sim  # noqa: F401
+import base_plan_bootstrap  # noqa: F401
 from shared_sim.config import base_value, selected_profile
 from shared_sim.io_utils import BASE_RUN_NAME_PREFIX
 from shared_sim.paths import (

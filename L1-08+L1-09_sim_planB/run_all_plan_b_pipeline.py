@@ -7,7 +7,7 @@ from typing import Any
 
 
 import plan_b_bootstrap  # noqa: F401
-from shared_sim.config import plan_b_active, plan_b_value, selected_profile
+from shared_sim.config import get_common_config_value, plan_b_active, plan_b_value, selected_profile
 from shared_sim.paths import DATA_ROOT, REPO_ROOT, RESULTS_ROOT as GRAPH_ROOT
 
 PLAN_B_ROOT = Path(__file__).resolve().parent
@@ -129,6 +129,7 @@ def plan_b_stages(run_dir: Path, settings: dict[str, Any]) -> list[PipelineStage
 
     coefficients_csv = plan_b_data_dir / "complex_fir_coefficients.csv"
     fixed_coefficients_csv = plan_b_data_dir / "complex_fir_coefficients_fixed.csv"
+    fs_hz_arg = f"{settings['fs_hz']:.12g}"
 
     stages = [
         PipelineStage(
@@ -144,9 +145,26 @@ def plan_b_stages(run_dir: Path, settings: dict[str, Any]) -> list[PipelineStage
                 str(plan_b_data_dir),
                 "--graph-dir",
                 str(plan_b_graph_dir),
+                "--fs-hz",
+                fs_hz_arg,
+                "--tap-num",
+                str(settings["tap_num"]),
+                "--regularization",
+                f"{settings['regularization']:.12g}",
+                "--coeff-total-bits",
+                str(settings["coeff_total_bits"]),
+                "--coeff-frac-bits",
+                str(settings["coeff_frac_bits"]),
             ],
         )
     ]
+    if settings["reference_delay_samples"] is not None:
+        stages[0].command.extend(
+            [
+                "--reference-delay-samples",
+                f"{float(settings['reference_delay_samples']):.12g}",
+            ]
+        )
 
     if not settings["skip_behavior"]:
         behavior_command = [
@@ -163,6 +181,8 @@ def plan_b_stages(run_dir: Path, settings: dict[str, Any]) -> list[PipelineStage
             str(behavior_data_dir),
             "--graph-dir",
             str(behavior_graph_dir),
+            "--fs-hz",
+            fs_hz_arg,
         ]
         stages.append(
             PipelineStage(
@@ -191,6 +211,8 @@ def plan_b_stages(run_dir: Path, settings: dict[str, Any]) -> list[PipelineStage
                     str(evm_lin_data_dir),
                     "--graph-dir",
                     str(evm_lin_graph_dir),
+                    "--fs-hz",
+                    fs_hz_arg,
                 ],
             )
         )
@@ -210,6 +232,8 @@ def plan_b_stages(run_dir: Path, settings: dict[str, Any]) -> list[PipelineStage
             str(qam_data_dir),
             "--graph-dir",
             str(qam_graph_dir),
+            "--fs-hz",
+            fs_hz_arg,
         ]
         if settings["save_iq"]:
             qam_command.append("--save-iq")
@@ -235,8 +259,11 @@ def load_plan_b_settings() -> dict[str, Any]:
         fixed_point = {}
     if not isinstance(stages, dict):
         stages = {}
+    profile = selected_profile()
+    fs_hz = get_common_config_value("fs_hz", design.get("fs_hz", 12e9), profile_name=profile)
     return {
-        "fs_hz": float(design.get("fs_hz", 12e9)),
+        "profile": profile or "active",
+        "fs_hz": float(fs_hz),
         "tap_num": int(design.get("tap_num", 256)),
         "regularization": float(design.get("regularization", 1e-6)),
         "reference_delay_samples": design.get("reference_delay_samples"),
@@ -273,7 +300,7 @@ def main() -> None:
 
     print("Plan B full pipeline", flush=True)
     print(f"repo_root: {REPO_ROOT}", flush=True)
-    print(f"profile: {selected_profile() or 'active'}", flush=True)
+    print(f"profile: {settings['profile']}", flush=True)
     print(f"source_run_mode: {'existing' if configured_dir is not None else 'new_h1_only'}", flush=True)
     print(f"fs_hz: {settings['fs_hz']:.12g}", flush=True)
     print(f"tap_num: {settings['tap_num']}", flush=True)
@@ -297,7 +324,7 @@ def main() -> None:
         {
             "run_dir": run_dir,
             "graph_dir": GRAPH_ROOT / run_dir.name,
-            "profile": selected_profile() or "active",
+            "profile": settings["profile"],
             "fs_hz": settings["fs_hz"],
             "tap_num": settings["tap_num"],
             "regularization": settings["regularization"],

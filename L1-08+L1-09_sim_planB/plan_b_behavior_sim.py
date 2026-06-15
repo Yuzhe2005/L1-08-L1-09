@@ -34,7 +34,7 @@ from shared_sim.behavior_utils import (
     measure_tone_values,
     synthesize_multitone,
 )
-from shared_sim.config import get_active_config_value, plan_b_value
+from shared_sim.config import get_active_config_value, get_common_config_value, plan_b_value
 from shared_sim.io_utils import find_latest_h1_run, h1_data_dir, load_h1_magnitude, load_h1_phase, save_iq_csv
 from shared_sim.run_summary import update_run_summary
 from plan_b_qam_evm_validator import PlanBCoefficients, load_plan_b_coefficients
@@ -436,7 +436,7 @@ def plot_phase_combined(run: PlanBBehaviorRun, output_path: Path) -> None:
 
 
 def parse_args() -> argparse.Namespace:
-    default_fs_hz = float(plan_b_value("design", "fs_hz", 12e9))
+    default_fs_hz = float(get_common_config_value("fs_hz", plan_b_value("design", "fs_hz", 12e9)))
     default_samples = int(get_active_config_value("behavior", "samples", 65536))
     default_settle_samples = int(get_active_config_value("behavior", "settle_samples", 256))
     default_tone_count = int(get_active_config_value("behavior", "tone_count", 51))

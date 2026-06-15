@@ -25,7 +25,7 @@ matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
 
-from shared_sim.config import plan_b_value
+from shared_sim.config import get_common_config_value, plan_b_value
 from shared_sim.io_utils import find_latest_h1_run, h1_data_dir
 
 
@@ -730,7 +730,7 @@ def fixed_point_choices(fixed_config: dict) -> list[tuple[int, int]]:
 
 
 def parse_args() -> argparse.Namespace:
-    default_fs_hz = float(plan_b_value("design", "fs_hz", 12e9))
+    default_fs_hz = float(get_common_config_value("fs_hz", plan_b_value("design", "fs_hz", 12e9)))
     default_tap_num = int(plan_b_value("design", "tap_num", 256))
     default_regularization = float(plan_b_value("design", "regularization", 1e-6))
     default_coeff_total_bits = int(plan_b_value("fixed_point", "coeff_total_bits", 18))

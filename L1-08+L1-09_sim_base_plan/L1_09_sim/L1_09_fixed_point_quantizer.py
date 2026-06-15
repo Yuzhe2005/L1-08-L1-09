@@ -382,6 +382,11 @@ def save_metrics_csv(design: QuantizedAllPass, output_csv: Path) -> None:
     output_csv.parent.mkdir(parents=True, exist_ok=True)
     float_comp = design.float_compensated_group_delay_ns
     fixed_comp = design.fixed_compensated_group_delay_ns
+    fixed_comp_ripple_pp_ns = float(np.max(fixed_comp) - np.min(fixed_comp))
+    compensated_ripple_pp_max_ns = float(
+        get_l1_09_config_value("allpass", "compensated_ripple_pp_max_ns", 0.2)
+    )
+    meets_compensated_ripple_target = fixed_comp_ripple_pp_ns <= compensated_ripple_pp_max_ns
     fixed_abs_db = 20.0 * np.log10(np.maximum(np.abs(design.fixed_response), np.finfo(float).tiny))
     phase_error = np.unwrap(np.angle(design.fixed_response)) - np.unwrap(np.angle(design.float_response))
     with output_csv.open("w", newline="", encoding="utf-8") as csv_file:
@@ -404,7 +409,9 @@ def save_metrics_csv(design: QuantizedAllPass, output_csv: Path) -> None:
         writer.writerow(["fixed_vs_float_phase_error_rms_rad", f"{float(np.sqrt(np.mean(phase_error**2))):.12e}"])
         writer.writerow(["fixed_vs_float_phase_error_max_abs_rad", f"{float(np.max(np.abs(phase_error))):.12e}"])
         writer.writerow(["float_compensated_group_delay_ripple_pp_ns", f"{float(np.max(float_comp) - np.min(float_comp)):.9f}"])
-        writer.writerow(["fixed_compensated_group_delay_ripple_pp_ns", f"{float(np.max(fixed_comp) - np.min(fixed_comp)):.9f}"])
+        writer.writerow(["fixed_compensated_group_delay_ripple_pp_ns", f"{fixed_comp_ripple_pp_ns:.9f}"])
+        writer.writerow(["compensated_group_delay_ripple_pp_max_ns", f"{compensated_ripple_pp_max_ns:.9f}"])
+        writer.writerow(["meets_compensated_ripple_target", meets_compensated_ripple_target])
         writer.writerow(["fixed_vs_float_compensated_group_delay_rms_ns", f"{float(np.sqrt(np.mean((fixed_comp - float_comp) ** 2))):.12e}"])
         writer.writerow(["fixed_vs_float_compensated_group_delay_max_abs_ns", f"{float(np.max(np.abs(fixed_comp - float_comp))):.12e}"])
 
@@ -498,6 +505,18 @@ def main() -> None:
             "rms_coeff_error": design.rms_coeff_error,
             "max_pole_radius": design.max_pole_radius,
             "stable": design.stable,
+            "fixed_compensated_group_delay_ripple_pp_ns": float(
+                np.max(design.fixed_compensated_group_delay_ns)
+                - np.min(design.fixed_compensated_group_delay_ns)
+            ),
+            "compensated_group_delay_ripple_pp_max_ns": float(
+                get_l1_09_config_value("allpass", "compensated_ripple_pp_max_ns", 0.2)
+            ),
+            "meets_compensated_ripple_target": float(
+                np.max(design.fixed_compensated_group_delay_ns)
+                - np.min(design.fixed_compensated_group_delay_ns)
+            )
+            <= float(get_l1_09_config_value("allpass", "compensated_ripple_pp_max_ns", 0.2)),
             "outputs": {
                 "coefficients_csv": design.output_dir / "allpass_coefficients_fixed.csv",
                 "response_csv": design.output_dir / "allpass_fixed_response.csv",
@@ -519,6 +538,15 @@ def main() -> None:
     print(f"max_abs_coeff_error: {design.max_abs_coeff_error:.12e}")
     print(f"max_pole_radius: {design.max_pole_radius:.12f}")
     print(f"stable: {design.stable}")
+    fixed_comp_ripple_pp_ns = float(
+        np.max(design.fixed_compensated_group_delay_ns) - np.min(design.fixed_compensated_group_delay_ns)
+    )
+    compensated_ripple_pp_max_ns = float(
+        get_l1_09_config_value("allpass", "compensated_ripple_pp_max_ns", 0.2)
+    )
+    print(f"fixed_compensated_group_delay_ripple_pp_ns: {fixed_comp_ripple_pp_ns:.9f}")
+    print(f"compensated_group_delay_ripple_pp_max_ns: {compensated_ripple_pp_max_ns:.9f}")
+    print(f"meets_compensated_ripple_target: {fixed_comp_ripple_pp_ns <= compensated_ripple_pp_max_ns}")
     print(f"coefficients_csv: {design.output_dir / 'allpass_coefficients_fixed.csv'}")
     print(f"response_csv: {design.output_dir / 'allpass_fixed_response.csv'}")
     print(f"metrics_csv: {design.output_dir / 'allpass_fixed_metrics.csv'}")

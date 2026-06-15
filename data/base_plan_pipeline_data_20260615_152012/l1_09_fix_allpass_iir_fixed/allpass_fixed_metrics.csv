@@ -1,0 +1,23 @@
+metric,value
+float_coefficients_csv,C:\Users\bjwb0005\Documents\Rigol_work\L1-08+L1-09\data\base_plan_pipeline_data_20260615_152012\l1_09_fix_allpass_iir_fs\allpass_coefficients.csv
+float_response_csv,C:\Users\bjwb0005\Documents\Rigol_work\L1-08+L1-09\data\base_plan_pipeline_data_20260615_152012\l1_09_fix_allpass_iir_fs\allpass_response.csv
+section_count,64
+total_bits,18
+frac_bits,15
+coeff_lsb,3.051757812500000e-05
+coeff_range,-4.000000000000e+00 to 3.999969482422e+00
+saturation_count,0
+max_abs_coeff_error,1.513418800000e-05
+rms_coeff_error,7.586500894759e-06
+max_pole_radius,0.979993971203
+stable,True
+fixed_allpass_magnitude_ripple_db,4.262327402166e-13
+fixed_allpass_max_abs_magnitude_error_db,2.160093525079e-13
+fixed_vs_float_phase_error_rms_rad,3.537505800808e-04
+fixed_vs_float_phase_error_max_abs_rad,1.078150946760e-03
+float_compensated_group_delay_ripple_pp_ns,4.127881417
+fixed_compensated_group_delay_ripple_pp_ns,4.129006688
+compensated_group_delay_ripple_pp_max_ns,0.200000000
+meets_compensated_ripple_target,False
+fixed_vs_float_compensated_group_delay_rms_ns,8.069292675108e-04
+fixed_vs_float_compensated_group_delay_max_abs_ns,1.527599905026e-03
