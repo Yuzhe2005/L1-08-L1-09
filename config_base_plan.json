@@ -11,7 +11,6 @@
     "l1_09": {
       "allpass": {
         "sections": 64,
-        "margin_ns": null,
         "compensated_ripple_pp_max_ns": 0.2
       },
       "fixed_point": {

@@ -1,3 +1,5 @@
+`default_nettype none
+
 // Base Plan L1-08 shared constants (synthesizable).
 // Golden reference: bw_1g_seed_a / tap80 / Q3.13 sweep combo.
 // Regenerate coeff/l1_08_fir_coeff_reset.svh when these change.

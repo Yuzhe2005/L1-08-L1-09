@@ -76,7 +76,6 @@ def build_stages(
     skip_evm_lin: bool,
     skip_qam_evm: bool,
     allpass_sections: int,
-    allpass_margin_ns: float | None,
     coeff_total_bits: int,
     coeff_frac_bits: int,
 ) -> list[PipelineStage]:
@@ -127,11 +126,6 @@ def build_stages(
                 str(allpass_graph_dir),
                 "--sections",
                 str(allpass_sections),
-                *(
-                    ["--margin-ns", f"{allpass_margin_ns:.12g}"]
-                    if allpass_margin_ns is not None
-                    else []
-                ),
             ],
         ),
         PipelineStage(
@@ -260,7 +254,6 @@ def main() -> None:
     validation_coeff_mode = str(base_value("run", "validation_coeff_mode", "both"))
     modes = validation_modes(validation_coeff_mode)
     allpass_sections = int(get_l1_09_config_value("allpass", "sections", 8))
-    allpass_margin_ns = get_l1_09_config_value("allpass", "margin_ns", None)
     coeff_total_bits = int(get_l1_09_config_value("fixed_point", "coeff_total_bits", 18))
     coeff_frac_bits = int(get_l1_09_config_value("fixed_point", "coeff_frac_bits", 15))
     skip_evm_lin = bool(base_value("run", "skip_evm_lin", False))
@@ -272,7 +265,6 @@ def main() -> None:
         skip_evm_lin=skip_evm_lin,
         skip_qam_evm=skip_qam_evm,
         allpass_sections=allpass_sections,
-        allpass_margin_ns=allpass_margin_ns,
         coeff_total_bits=coeff_total_bits,
         coeff_frac_bits=coeff_frac_bits,
     )
@@ -282,7 +274,6 @@ def main() -> None:
     print(f"run_dir: {run_dir}", flush=True)
     print(f"validation_coeff_mode: {validation_coeff_mode}", flush=True)
     print(f"allpass_sections: {allpass_sections}", flush=True)
-    print(f"allpass_margin_ns: {allpass_margin_ns}", flush=True)
     print(f"coeff_total_bits: {coeff_total_bits}", flush=True)
     print(f"coeff_frac_bits: {coeff_frac_bits}", flush=True)
     print(f"stage_count: {len(stages)}", flush=True)
@@ -299,7 +290,6 @@ def main() -> None:
             "validation_coeff_mode": validation_coeff_mode,
             "validation_modes": modes,
             "allpass_sections": allpass_sections,
-            "allpass_margin_ns": allpass_margin_ns,
             "coeff_total_bits": coeff_total_bits,
             "coeff_frac_bits": coeff_frac_bits,
             "skip_evm_lin": skip_evm_lin,

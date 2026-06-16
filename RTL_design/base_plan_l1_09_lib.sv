@@ -1,3 +1,5 @@
+`default_nettype none
+
 // Base Plan L1-09 shared constants (synthesizable).
 // Golden reference: base_plan_pipeline_data_20260615_150846 / bw_1g / 64 sections / Q3.15.
 // Regenerate coeff/l1_09_allpass_coeff_reset.svh when these change.
@@ -22,7 +24,7 @@ package base_plan_l1_09_pkg;
     localparam int ACCUM_WIDTH_DEFAULT =
         DATA_WIDTH_DEFAULT + COEFF_WIDTH_DEFAULT + ACCUM_EXTRA_BITS_DEFAULT;
 
-    // One biquad section per clock in the cascaded wavefront pipeline.
+    // One registered biquad output per section.
     localparam int IIR_LATENCY_DEFAULT        = SECTION_COUNT_DEFAULT;
 
 endpackage

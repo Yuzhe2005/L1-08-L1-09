@@ -1,15 +1,8 @@
-﻿// Base Plan L1-08 — synthesizable RTL (coeff preload on reset, method A).
-//
-// Coefficients: async reset loads all TAP_NUM values from
-//   coeff/l1_08_fir_coeff_reset.svh (regenerate from h2_fir_coefficients_fixed.csv).
-// Product flow: NVM tables are baked into per-tape-out / per-workpoint reset images.
-//
-// MAC datapath: parallel multiply + pipelined adder tree (see L1-08_planning/L1-08.md).
-// L1-08 o_* is intended to feed L1-09 later.
+`default_nettype none
+
 
 import base_plan_l1_08_pkg::*;
 
-// Coefficient register bank: loaded once on async reset, then held until next reset.
 module l1_08_fir_coeff_bank #(
     parameter int TAP_NUM     = TAP_NUM_DEFAULT,
     parameter int COEFF_WIDTH = COEFF_WIDTH_DEFAULT
@@ -31,8 +24,6 @@ module l1_08_fir_coeff_bank #(
     end
 endmodule
 
-// Parallel multiply + pipelined binary adder tree.
-// Latency: MAC_LATENCY cycles from valid sample presentation to y_out update.
 module fir_mac #(
     parameter int TAP_NUM   = TAP_NUM_DEFAULT,
     parameter int DATA_W    = DATA_WIDTH_DEFAULT,
@@ -48,7 +39,6 @@ module fir_mac #(
 );
     localparam int MULT_W = DATA_W + COEFF_W;
 
-    // Level sizes for TAP_NUM=80: 80 -> 40 -> 20 -> 10 -> 5 -> 3 -> 2 -> 1
     localparam int N1 = (TAP_NUM + 1) / 2;
     localparam int N2 = (N1 + 1) / 2;
     localparam int N3 = (N2 + 1) / 2;
@@ -172,7 +162,8 @@ module L1_08 #(
 
     input  logic                             bypass
 );
-    localparam int SettleSamples = TAP_NUM - 1;
+    localparam int FullWindowSamples = TAP_NUM;
+    localparam int OUTPUT_LATENCY = MAC_LATENCY + 1;
 
     logic signed [DATA_WIDTH-1:0]  x_i [TAP_NUM];
     logic signed [DATA_WIDTH-1:0]  x_q [TAP_NUM];
@@ -184,12 +175,12 @@ module L1_08 #(
     logic                          run_valid;
     logic                          mac_valid_in;
     logic                          mac_out_valid;
-    logic [MAC_LATENCY-1:0]        mac_valid_pipe;
+    logic [OUTPUT_LATENCY-1:0]     mac_valid_pipe;
     logic [$clog2(TAP_NUM+1)-1:0]  sample_count;
 
     assign run_valid     = in_valid && coeffs_ready;
-    assign mac_valid_in  = run_valid && (sample_count >= SettleSamples) && !bypass;
-    assign mac_out_valid = mac_valid_pipe[MAC_LATENCY-1];
+    assign mac_valid_in  = run_valid && (sample_count >= FullWindowSamples) && !bypass;
+    assign mac_out_valid = mac_valid_pipe[OUTPUT_LATENCY-1];
 
     l1_08_fir_coeff_bank #(
         .TAP_NUM(TAP_NUM),
@@ -273,19 +264,20 @@ module L1_08 #(
                 x_i[0] <= i_in;
                 x_q[0] <= q_in;
 
-                if (sample_count < SettleSamples) begin
+                if (sample_count < FullWindowSamples) begin
                     sample_count <= sample_count + 1'b1;
                 end
             end
 
-            mac_valid_pipe <= {mac_valid_pipe[MAC_LATENCY-2:0], mac_valid_in};
-            //might have potential clock align error
+            if (run_valid) begin
+                mac_valid_pipe <= {mac_valid_pipe[OUTPUT_LATENCY-2:0], mac_valid_in};
+            end
 
             if (in_valid && coeffs_ready && bypass) begin
                 o_i     <= i_in;
                 o_q     <= q_in;
                 o_valid <= 1'b1;
-            end else if (mac_out_valid) begin
+            end else if (run_valid && mac_out_valid) begin
                 o_i     <= round_sat_q15(acc_i);
                 o_q     <= round_sat_q15(acc_q);
                 o_valid <= 1'b1;

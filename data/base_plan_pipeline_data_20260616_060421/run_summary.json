@@ -1,0 +1,563 @@
+{
+  "run_name": "base_plan_pipeline_data_20260616_060421",
+  "data_dir": "D:\\桌面\\Rigol\\data\\base_plan_pipeline_data_20260616_060421",
+  "created_at_utc": "2026-06-16T10:04:22+00:00",
+  "stages": {
+    "h1_generation": {
+      "run_name": "base_plan_pipeline_data_20260616_060421",
+      "profile": "bw_1g",
+      "seed_case": "active",
+      "seed": 1991929761,
+      "data_dir": "D:\\桌面\\Rigol\\data\\base_plan_pipeline_data_20260616_060421",
+      "graph_dir": "D:\\桌面\\Rigol\\graph\\base_plan_pipeline_data_20260616_060421",
+      "frequency": {
+        "points": 1001,
+        "f_min_hz": 5500000000.0,
+        "f_max_hz": 6500000000.0
+      },
+      "magnitude_features": [
+        {
+          "name": "slope",
+          "ripple_pp_db": 0.0898662493218104
+        },
+        {
+          "name": "ripple",
+          "ripple_pp_db": 0.21161954225176044
+        },
+        {
+          "name": "notch_bump",
+          "ripple_pp_db": 0.2664452106970496
+        },
+        {
+          "name": "edge_rolloff",
+          "ripple_pp_db": 0.2786596103755564
+        },
+        {
+          "name": "measurement_noise",
+          "ripple_pp_db": 0.03736516845755944
+        }
+      ],
+      "phase_features": [
+        {
+          "name": "linear_phase_delay",
+          "phase_min_rad": -88.042996807086,
+          "phase_max_rad": -74.4979203752266
+        },
+        {
+          "name": "phase_ripple",
+          "phase_min_rad": -0.29544908227997857,
+          "phase_max_rad": 0.2822370493887353
+        },
+        {
+          "name": "local_phase_distortion",
+          "phase_min_rad": -0.10413133515664551,
+          "phase_max_rad": 0.3433573641136535
+        },
+        {
+          "name": "group_delay_ripple",
+          "phase_min_rad": -0.03532653640494349,
+          "phase_max_rad": 0.03668418379878067
+        },
+        {
+          "name": "phase_noise",
+          "phase_min_rad": -0.008773167762808759,
+          "phase_max_rad": 0.0073998755796439615
+        }
+      ],
+      "magnitude_combined_ripple_pp_db": 0.3977673644839147,
+      "phase_combined_min_rad": -88.39835378790687,
+      "phase_combined_max_rad": -74.76710543116977,
+      "phase_group_delay_mean_ns": 2.1690186499409627,
+      "phase_group_delay_positive_ratio": 1.0,
+      "outputs": {
+        "magnitude_combined_csv": "D:\\桌面\\Rigol\\data\\base_plan_pipeline_data_20260616_060421\\h1_full_combined_random\\magnitude_combined.csv",
+        "phase_combined_csv": "D:\\桌面\\Rigol\\data\\base_plan_pipeline_data_20260616_060421\\h1_full_combined_random\\phase_combined.csv",
+        "together_csv": "D:\\桌面\\Rigol\\data\\base_plan_pipeline_data_20260616_060421\\h1_full_combined_random\\together.csv",
+        "plots": [
+          "D:\\桌面\\Rigol\\graph\\base_plan_pipeline_data_20260616_060421\\h1_full_combined_random\\magnitude_combined_magnitude.png",
+          "D:\\桌面\\Rigol\\graph\\base_plan_pipeline_data_20260616_060421\\h1_full_combined_random\\phase_combined_phase.png"
+        ]
+      }
+    },
+    "h2_target_generation": {
+      "input_csv": "D:\\桌面\\Rigol\\data\\base_plan_pipeline_data_20260616_060421\\h1_full_combined_random\\magnitude_combined.csv",
+      "output_csv": "D:\\桌面\\Rigol\\data\\base_plan_pipeline_data_20260616_060421\\l1_08_h2_target\\h2_target.csv",
+      "plot": "D:\\桌面\\Rigol\\graph\\base_plan_pipeline_data_20260616_060421\\l1_08_h2_target\\h2_target.png",
+      "reference_gain_db": 0.0,
+      "points": 1001,
+      "f_min_hz": 5500000000.0,
+      "f_max_hz": 6500000000.0,
+      "h1_ripple_before_db": 0.397767364,
+      "h1_plus_h2_target_ripple_db": 0.0
+    }
+  },
+  "stage_history": [
+    {
+      "stage": "h1_generation",
+      "updated_at_utc": "2026-06-16T10:04:22+00:00"
+    },
+    {
+      "stage": "h2_target_generation",
+      "updated_at_utc": "2026-06-16T10:04:25+00:00"
+    }
+  ],
+  "updated_at_utc": "2026-06-16T10:04:25+00:00",
+  "graph_dir": "D:\\桌面\\Rigol\\graph\\base_plan_pipeline_data_20260616_060421\\l1_08_h2_target",
+  "input_config": {
+    "selected_profile": "bw_1g",
+    "active": {
+      "common": {
+        "fs_hz": 12000000000.0
+      },
+      "h1": {
+        "seed": 1571318759
+      },
+      "h1_random_model": {
+        "frequency_grid": {
+          "f_min_hz": 3500000000.0,
+          "f_max_hz": 4500000000.0,
+          "num_points": 1001
+        },
+        "magnitude": {
+          "slope": {
+            "slope_pp_db_min": 0.0,
+            "slope_pp_db_max": 0.4,
+            "offset_db_min": -0.02,
+            "offset_db_max": 0.02
+          },
+          "ripple": {
+            "component_count_min": 1,
+            "component_count_max": 4,
+            "amplitude_db_min": 0.02,
+            "amplitude_db_max": 0.12,
+            "cycles_min": 0.5,
+            "cycles_max": 5.0
+          },
+          "notch_bump": {
+            "feature_count_min": 1,
+            "feature_count_max": 4,
+            "amplitude_db_min": 0.05,
+            "amplitude_db_max": 0.35,
+            "width_fraction_min": 0.03,
+            "width_fraction_max": 0.15,
+            "center_fraction_min": 0.05,
+            "center_fraction_max": 0.95
+          },
+          "edge_rolloff": {
+            "edge_depth_db_min": 0.05,
+            "edge_depth_db_max": 0.35,
+            "width_fraction_min": 0.05,
+            "width_fraction_max": 0.25
+          },
+          "measurement_noise": {
+            "noise_std_db_min": 0.002,
+            "noise_std_db_max": 0.01
+          }
+        },
+        "phase": {
+          "linear_phase_delay": {
+            "delay_ns_min": 1.0,
+            "delay_ns_max": 4.0,
+            "allow_negative_delay": false
+          },
+          "phase_ripple": {
+            "component_count_min": 1,
+            "component_count_max": 4,
+            "amplitude_rad_min": 0.02,
+            "amplitude_rad_max": 0.2,
+            "cycles_min": 0.5,
+            "cycles_max": 5.0
+          },
+          "local_phase_distortion": {
+            "feature_count_min": 1,
+            "feature_count_max": 4,
+            "amplitude_rad_min": 0.03,
+            "amplitude_rad_max": 0.3,
+            "width_fraction_min": 0.03,
+            "width_fraction_max": 0.15,
+            "center_fraction_min": 0.05,
+            "center_fraction_max": 0.95
+          },
+          "group_delay_ripple": {
+            "component_count_min": 1,
+            "component_count_max": 3,
+            "delay_ripple_ns_min": 0.02,
+            "delay_ripple_ns_max": 0.2,
+            "cycles_min": 0.5,
+            "cycles_max": 4.0
+          },
+          "phase_noise": {
+            "noise_std_rad_min": 0.001,
+            "noise_std_rad_max": 0.01
+          }
+        }
+      },
+      "behavior": {
+        "samples": 65536,
+        "settle_samples": 256,
+        "tone_count": 51,
+        "tone_min_hz": 3550000000.0,
+        "tone_max_hz": 4450000000.0,
+        "peak_amplitude": 0.8,
+        "seed": 1925817879
+      },
+      "qam_evm": {
+        "samples": 65536,
+        "freq_min_hz": 3550000000.0,
+        "freq_max_hz": 4450000000.0,
+        "qam_order": 64,
+        "peak_amplitude": 0.8,
+        "seed": 140927704,
+        "max_constellation_points": 3000
+      }
+    },
+    "profiles": {
+      "bw_500m": {
+        "common": {
+          "fs_hz": 24000000000.0
+        },
+        "h1": {
+          "seed": 1040330957
+        },
+        "h1_random_model": {
+          "frequency_grid": {
+            "f_min_hz": 5750000000.0,
+            "f_max_hz": 6250000000.0,
+            "num_points": 1001
+          },
+          "magnitude": {
+            "slope": {
+              "slope_pp_db_max": 0.18
+            },
+            "ripple": {
+              "amplitude_db_max": 0.06,
+              "cycles_max": 3.0
+            },
+            "notch_bump": {
+              "amplitude_db_max": 0.12,
+              "feature_count_max": 2
+            },
+            "edge_rolloff": {
+              "edge_depth_db_max": 0.12
+            },
+            "measurement_noise": {
+              "noise_std_db_max": 0.004
+            }
+          },
+          "phase": {
+            "linear_phase_delay": {
+              "delay_ns_min": 0.4,
+              "delay_ns_max": 1.2,
+              "allow_negative_delay": false
+            },
+            "phase_ripple": {
+              "amplitude_rad_max": 0.06,
+              "cycles_max": 3.0
+            },
+            "local_phase_distortion": {
+              "amplitude_rad_max": 0.1,
+              "feature_count_max": 2
+            },
+            "group_delay_ripple": {
+              "delay_ripple_ns_max": 0.06
+            },
+            "phase_noise": {
+              "noise_std_rad_max": 0.003
+            }
+          }
+        },
+        "behavior": {
+          "tone_min_hz": 5775000000.0,
+          "tone_max_hz": 6225000000.0,
+          "seed": 1068822328
+        },
+        "qam_evm": {
+          "freq_min_hz": 5775000000.0,
+          "freq_max_hz": 6225000000.0,
+          "seed": 225239571
+        }
+      },
+      "bw_1g": {
+        "common": {
+          "fs_hz": 24000000000.0
+        },
+        "h1": {
+          "seed": 1991929761
+        },
+        "h1_random_model": {
+          "frequency_grid": {
+            "f_min_hz": 5500000000.0,
+            "f_max_hz": 6500000000.0,
+            "num_points": 1001
+          }
+        },
+        "behavior": {
+          "tone_min_hz": 5550000000.0,
+          "tone_max_hz": 6450000000.0,
+          "seed": 1636938305
+        },
+        "qam_evm": {
+          "freq_min_hz": 5550000000.0,
+          "freq_max_hz": 6450000000.0,
+          "seed": 876555241
+        }
+      },
+      "bw_2g": {
+        "common": {
+          "fs_hz": 24000000000.0
+        },
+        "h1": {
+          "seed": 1571318759
+        },
+        "h1_random_model": {
+          "frequency_grid": {
+            "f_min_hz": 5000000000.0,
+            "f_max_hz": 7000000000.0,
+            "num_points": 1601
+          },
+          "magnitude": {
+            "slope": {
+              "slope_pp_db_max": 0.55
+            },
+            "ripple": {
+              "amplitude_db_max": 0.16,
+              "cycles_max": 6.0
+            },
+            "notch_bump": {
+              "amplitude_db_max": 0.45
+            },
+            "edge_rolloff": {
+              "edge_depth_db_max": 0.45
+            },
+            "measurement_noise": {
+              "noise_std_db_max": 0.012
+            }
+          },
+          "phase": {
+            "linear_phase_delay": {
+              "delay_ns_min": 1.5,
+              "delay_ns_max": 5.0,
+              "allow_negative_delay": false
+            },
+            "phase_ripple": {
+              "amplitude_rad_max": 0.28,
+              "cycles_max": 6.0
+            },
+            "local_phase_distortion": {
+              "amplitude_rad_max": 0.45
+            },
+            "group_delay_ripple": {
+              "delay_ripple_ns_max": 0.3
+            },
+            "phase_noise": {
+              "noise_std_rad_max": 0.012
+            }
+          }
+        },
+        "behavior": {
+          "tone_min_hz": 5100000000.0,
+          "tone_max_hz": 6900000000.0,
+          "tone_count": 101,
+          "seed": 1925817879
+        },
+        "qam_evm": {
+          "freq_min_hz": 5100000000.0,
+          "freq_max_hz": 6900000000.0,
+          "seed": 140927704
+        }
+      },
+      "bw_4g": {
+        "common": {
+          "fs_hz": 24000000000.0
+        },
+        "h1": {
+          "seed": 312907005
+        },
+        "h1_random_model": {
+          "frequency_grid": {
+            "f_min_hz": 4000000000.0,
+            "f_max_hz": 8000000000.0,
+            "num_points": 2001
+          },
+          "magnitude": {
+            "slope": {
+              "slope_pp_db_max": 0.75
+            },
+            "ripple": {
+              "amplitude_db_max": 0.2,
+              "cycles_max": 7.0
+            },
+            "notch_bump": {
+              "amplitude_db_max": 0.6,
+              "feature_count_max": 5
+            },
+            "edge_rolloff": {
+              "edge_depth_db_max": 0.6
+            },
+            "measurement_noise": {
+              "noise_std_db_max": 0.015
+            }
+          },
+          "phase": {
+            "linear_phase_delay": {
+              "delay_ns_min": 2.0,
+              "delay_ns_max": 6.0,
+              "allow_negative_delay": false
+            },
+            "phase_ripple": {
+              "amplitude_rad_max": 0.4,
+              "cycles_max": 7.0
+            },
+            "local_phase_distortion": {
+              "amplitude_rad_max": 0.65,
+              "feature_count_max": 5
+            },
+            "group_delay_ripple": {
+              "delay_ripple_ns_max": 0.45
+            },
+            "phase_noise": {
+              "noise_std_rad_max": 0.015
+            }
+          }
+        },
+        "behavior": {
+          "tone_min_hz": 4200000000.0,
+          "tone_max_hz": 7800000000.0,
+          "tone_count": 151,
+          "seed": 1942894188
+        },
+        "qam_evm": {
+          "freq_min_hz": 4200000000.0,
+          "freq_max_hz": 7800000000.0,
+          "seed": 42596643
+        }
+      },
+      "bw_8g": {
+        "common": {
+          "fs_hz": 24000000000.0
+        },
+        "h1": {
+          "seed": 685773661
+        },
+        "h1_random_model": {
+          "frequency_grid": {
+            "f_min_hz": 2000000000.0,
+            "f_max_hz": 10000000000.0,
+            "num_points": 3201
+          },
+          "magnitude": {
+            "slope": {
+              "slope_pp_db_max": 1.0
+            },
+            "ripple": {
+              "amplitude_db_max": 0.25,
+              "cycles_max": 9.0
+            },
+            "notch_bump": {
+              "amplitude_db_max": 0.8,
+              "feature_count_max": 6
+            },
+            "edge_rolloff": {
+              "edge_depth_db_max": 0.8
+            },
+            "measurement_noise": {
+              "noise_std_db_max": 0.02
+            }
+          },
+          "phase": {
+            "linear_phase_delay": {
+              "delay_ns_min": 2.5,
+              "delay_ns_max": 8.0,
+              "allow_negative_delay": false
+            },
+            "phase_ripple": {
+              "amplitude_rad_max": 0.55,
+              "cycles_max": 9.0
+            },
+            "local_phase_distortion": {
+              "amplitude_rad_max": 0.85,
+              "feature_count_max": 6
+            },
+            "group_delay_ripple": {
+              "delay_ripple_ns_max": 0.7
+            },
+            "phase_noise": {
+              "noise_std_rad_max": 0.02
+            }
+          }
+        },
+        "behavior": {
+          "tone_min_hz": 2400000000.0,
+          "tone_max_hz": 9600000000.0,
+          "tone_count": 201,
+          "seed": 1237633613
+        },
+        "qam_evm": {
+          "freq_min_hz": 2400000000.0,
+          "freq_max_hz": 9600000000.0,
+          "seed": 538976944
+        }
+      }
+    }
+  },
+  "param_config": {
+    "active": {
+      "h2_fir": {
+        "tap_num": 80,
+        "regularization": 0.0001
+      },
+      "fixed_point": {
+        "coeff_total_bits": 16,
+        "coeff_frac_bits": 13
+      },
+      "l1_09": {
+        "allpass": {
+          "sections": 64,
+          "compensated_ripple_pp_max_ns": 0.2
+        },
+        "fixed_point": {
+          "coeff_total_bits": 18,
+          "coeff_frac_bits": 15
+        },
+        "qam_evm": {
+          "coeff_mode": "float",
+          "iir_settle_blocks": 0
+        },
+        "evm_lin": {
+          "coeff_mode": "float"
+        }
+      },
+      "run": {
+        "skip_l1_08_qam_evm": false,
+        "skip_evm_lin": false,
+        "skip_l1_09_qam_evm": false,
+        "validation_coeff_mode": "both",
+        "run_dir": null
+      }
+    }
+  },
+  "plan_b_config": {
+    "active": {
+      "input": {
+        "run_dir": null,
+        "h1_csv": null
+      },
+      "design": {
+        "fs_hz": 24000000000.0,
+        "tap_num": 256,
+        "regularization": 1e-05,
+        "reference_delay_samples": null
+      },
+      "fixed_point": {
+        "coeff_total_bits": 18,
+        "coeff_frac_bits": 15
+      },
+      "stages": {
+        "skip_behavior": false,
+        "skip_evm_lin": false,
+        "skip_qam_evm": false,
+        "save_iq": false
+      }
+    }
+  }
+}

@@ -1,3 +1,5 @@
+`default_nettype none
+
 // Base Plan full-chain top: L1-08 FIR compensation followed by L1-09 all-pass IIR.
 
 import base_plan_l1_08_pkg::*;

@@ -43,7 +43,6 @@ class AllPassDesign:
     fs_hz: float
     section_count: int
     target_delay_ns: float
-    margin_ns: float
     r_values: np.ndarray
     theta_values_rad: np.ndarray
     center_freq_hz: np.ndarray
@@ -240,7 +239,6 @@ def design_allpass(
     output_dir: Path,
     fs_hz: float,
     section_count: int,
-    margin_ns: float | None,
     compensated_ripple_pp_max_ns: float = 0.2,
 ) -> AllPassDesign:
     if section_count < 1:
@@ -253,9 +251,6 @@ def design_allpass(
     original_shape_ns = original_delay_ns - np.mean(original_delay_ns)
     ripple_scale_ns = max(original_ripple_ns, 1.0)
     ripple_weights = 0.25 + 0.75 * (np.abs(original_shape_ns) / max(np.max(np.abs(original_shape_ns)), 1e-9))
-    resolved_margin_ns = margin_ns
-    if resolved_margin_ns is None:
-        resolved_margin_ns = max(0.05, 0.05 * original_ripple_ns)
 
     digital_w = fs_based_digital_frequency(input_data.freq_hz, fs_hz)
     theta_min, theta_max = theta_limits(digital_w)
@@ -280,7 +275,7 @@ def design_allpass(
         residual,
         x0,
         bounds=(lower, upper),
-        max_nfev=2500,
+        max_nfev=3600,
         ftol=1e-10,
         xtol=1e-10,
         gtol=1e-10,
@@ -314,7 +309,6 @@ def design_allpass(
         fs_hz=fs_hz,
         section_count=section_count,
         target_delay_ns=target_delay_ns,
-        margin_ns=float(resolved_margin_ns),
         r_values=r_values,
         theta_values_rad=theta_values,
         center_freq_hz=center_freq_hz,
@@ -449,7 +443,6 @@ def save_metrics_csv(design: AllPassDesign, output_csv: Path) -> None:
         writer.writerow(["fs_hz", f"{design.fs_hz:.6f}"])
         writer.writerow(["section_count", design.section_count])
         writer.writerow(["target_delay_ns", f"{design.target_delay_ns:.9f}"])
-        writer.writerow(["target_margin_ns", f"{design.margin_ns:.9f}"])
         writer.writerow(["original_group_delay_ripple_pp_ns", f"{original_ripple:.9f}"])
         writer.writerow(["original_group_delay_rms_around_mean_ns", f"{original_rms:.9f}"])
         writer.writerow(["compensated_group_delay_ripple_pp_ns", f"{design.compensated_ripple_pp_ns:.9f}"])
@@ -497,7 +490,6 @@ def plot_phase_before_after(design: AllPassDesign, output_path: Path) -> None:
 def parse_args() -> argparse.Namespace:
     default_fs_hz = float(get_common_config_value("fs_hz", 12e9))
     default_sections = int(get_l1_09_config_value("allpass", "sections", 4))
-    default_margin_ns = get_l1_09_config_value("allpass", "margin_ns", None)
     default_compensated_ripple_pp_max_ns = float(
         get_l1_09_config_value("allpass", "compensated_ripple_pp_max_ns", 0.2)
     )
@@ -528,12 +520,6 @@ def parse_args() -> argparse.Namespace:
         help=f"Number of second-order all-pass sections. Default from config_base_plan.json: {default_sections}.",
     )
     parser.add_argument(
-        "--margin-ns",
-        type=float,
-        default=default_margin_ns,
-        help="Delay margin above max group delay. Defaults to max(0.05 ns, 5%% of raw ripple).",
-    )
-    parser.add_argument(
         "--compensated-ripple-pp-max-ns",
         type=float,
         default=default_compensated_ripple_pp_max_ns,
@@ -557,7 +543,6 @@ def main() -> None:
         output_dir=output_dir,
         fs_hz=args.fs_hz,
         section_count=args.sections,
-        margin_ns=args.margin_ns,
         compensated_ripple_pp_max_ns=args.compensated_ripple_pp_max_ns,
     )
 

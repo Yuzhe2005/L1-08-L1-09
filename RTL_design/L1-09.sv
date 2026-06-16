@@ -1,16 +1,8 @@
-// Base Plan L1-09 synthesizable RTL (coeff preload on reset, method A).
-//
-// Coefficients: async reset loads all SECTION_COUNT SOS rows from
-//   coeff/l1_09_allpass_coeff_reset.svh (regenerate from allpass_coefficients_fixed.csv).
-//
-// Structure: 64-section cascaded 2nd-order all-pass IIR (Direct Form I), real coeffs on I/Q.
-// Reference: scipy.signal.sosfilt cold-start, L1_09_fixed_point_quantizer.py (Q3.15).
-//
-// Pipeline: wavefront, one biquad section per clock, IIR_LATENCY = SECTION_COUNT.
+`default_nettype none
+
 
 import base_plan_l1_09_pkg::*;
 
-// SOS coefficient bank: loaded once on async reset, then held until next reset.
 module l1_09_allpass_coeff_bank #(
     parameter int SECTION_COUNT = SECTION_COUNT_DEFAULT,
     parameter int COEFF_WIDTH   = COEFF_WIDTH_DEFAULT
@@ -18,21 +10,12 @@ module l1_09_allpass_coeff_bank #(
     input  logic                               clk,
     input  logic                               reset_n,
     output logic                               coeffs_ready,
-    output logic signed [COEFF_WIDTH-1:0]      b0 [SECTION_COUNT],
-    output logic signed [COEFF_WIDTH-1:0]      b1 [SECTION_COUNT],
-    output logic signed [COEFF_WIDTH-1:0]      b2 [SECTION_COUNT],
     output logic signed [COEFF_WIDTH-1:0]      a1 [SECTION_COUNT],
     output logic signed [COEFF_WIDTH-1:0]      a2 [SECTION_COUNT]
 );
-    logic signed [COEFF_WIDTH-1:0] coeff_b0 [SECTION_COUNT];
-    logic signed [COEFF_WIDTH-1:0] coeff_b1 [SECTION_COUNT];
-    logic signed [COEFF_WIDTH-1:0] coeff_b2 [SECTION_COUNT];
     logic signed [COEFF_WIDTH-1:0] coeff_a1 [SECTION_COUNT];
     logic signed [COEFF_WIDTH-1:0] coeff_a2 [SECTION_COUNT];
 
-    assign b0           = coeff_b0;
-    assign b1           = coeff_b1;
-    assign b2           = coeff_b2;
     assign a1           = coeff_a1;
     assign a2           = coeff_a2;
     assign coeffs_ready = reset_n;
@@ -44,7 +27,6 @@ module l1_09_allpass_coeff_bank #(
     end
 endmodule
 
-// One DF-I biquad stage: y[n] = (b0*x[n] + b1*x[n-1] + b2*x[n-2] - a1*y[n-1] - a2*y[n-2]) / 2^FRAC
 module iir_biquad_df1_stage #(
     parameter int DATA_W          = DATA_WIDTH_DEFAULT,
     parameter int COEFF_W         = COEFF_WIDTH_DEFAULT,
@@ -55,9 +37,6 @@ module iir_biquad_df1_stage #(
     input  logic                             reset_n,
     input  logic                             stage_en,
     input  logic signed [DATA_W-1:0]         x_in,
-    input  logic signed [COEFF_W-1:0]        b0,
-    input  logic signed [COEFF_W-1:0]        b1,
-    input  logic signed [COEFF_W-1:0]        b2,
     input  logic signed [COEFF_W-1:0]        a1,
     input  logic signed [COEFF_W-1:0]        a2,
     output logic signed [DATA_W-1:0]         y_out
@@ -68,9 +47,9 @@ module iir_biquad_df1_stage #(
     logic signed [DATA_W-1:0]      x2;
     logic signed [DATA_W-1:0]      y1;
     logic signed [DATA_W-1:0]      y2;
-    logic signed [MULT_W-1:0]      prod_b0;
-    logic signed [MULT_W-1:0]      prod_b1;
-    logic signed [MULT_W-1:0]      prod_b2;
+    logic signed [MULT_W-1:0]      prod_x0_a2;
+    logic signed [MULT_W-1:0]      prod_x1_a1;
+    logic signed [MULT_W-1:0]      prod_x2_unity;
     logic signed [MULT_W-1:0]      prod_a1;
     logic signed [MULT_W-1:0]      prod_a2;
     logic signed [ACC_W-1:0]       acc;
@@ -80,16 +59,20 @@ module iir_biquad_df1_stage #(
         input logic signed [ACC_W-1:0] value
     );
         logic signed [ACC_W-1:0] rounded;
-        logic signed [DATA_W-1:0] truncated;
+        logic signed [ACC_W-1:0] shifted;
+        logic signed [ACC_W-1:0] max_out;
+        logic signed [ACC_W-1:0] min_out;
         begin
+            max_out = {{(ACC_W-DATA_W){1'b0}}, 1'b0, {DATA_W-1{1'b1}}};
+            min_out = {{(ACC_W-DATA_W){1'b1}}, 1'b1, {DATA_W-1{1'b0}}};
             rounded = (COEFF_FRAC_BITS == 0) ? value : (value + (1 <<< (COEFF_FRAC_BITS - 1)));
-            truncated = rounded >>> COEFF_FRAC_BITS;
-            if (truncated > $signed({1'b0, {DATA_W-1{1'b1}}})) begin
+            shifted = rounded >>> COEFF_FRAC_BITS;
+            if (shifted > max_out) begin
                 round_sat_qx = {1'b0, {DATA_W-1{1'b1}}};
-            end else if (truncated < $signed({1'b1, {DATA_W-1{1'b0}}})) begin
+            end else if (shifted < min_out) begin
                 round_sat_qx = {1'b1, {DATA_W-1{1'b0}}};
             end else begin
-                round_sat_qx = truncated[DATA_W-1:0];
+                round_sat_qx = shifted[DATA_W-1:0];
             end
         end
     endfunction
@@ -101,14 +84,14 @@ module iir_biquad_df1_stage #(
     endfunction
 
     always_comb begin
-        prod_b0 = x_in * b0;
-        prod_b1 = x1   * b1;
-        prod_b2 = x2   * b2;
-        prod_a1 = y1   * a1;
-        prod_a2 = y2   * a2;
-        acc = sign_extend_prod(prod_b0)
-            + sign_extend_prod(prod_b1)
-            + sign_extend_prod(prod_b2)
+        prod_x0_a2    = x_in * a2;
+        prod_x1_a1    = x1   * a1;
+        prod_x2_unity = {{COEFF_W{x2[DATA_W-1]}}, x2} <<< COEFF_FRAC_BITS;
+        prod_a1       = y1   * a1;
+        prod_a2       = y2   * a2;
+        acc = sign_extend_prod(prod_x0_a2)
+            + sign_extend_prod(prod_x1_a1)
+            + sign_extend_prod(prod_x2_unity)
             - sign_extend_prod(prod_a1)
             - sign_extend_prod(prod_a2);
         y_next = round_sat_qx(acc);
@@ -131,7 +114,6 @@ module iir_biquad_df1_stage #(
     end
 endmodule
 
-// Cascaded SOS pipeline: spatial wavefront, one section per clock of latency.
 module iir_sos_cascade #(
     parameter int SECTION_COUNT   = SECTION_COUNT_DEFAULT,
     parameter int DATA_W          = DATA_WIDTH_DEFAULT,
@@ -143,9 +125,6 @@ module iir_sos_cascade #(
     input  logic                             reset_n,
     input  logic                             stage_en,
     input  logic signed [DATA_W-1:0]         x_in,
-    input  logic signed [COEFF_W-1:0]         b0 [SECTION_COUNT],
-    input  logic signed [COEFF_W-1:0]         b1 [SECTION_COUNT],
-    input  logic signed [COEFF_W-1:0]         b2 [SECTION_COUNT],
     input  logic signed [COEFF_W-1:0]         a1 [SECTION_COUNT],
     input  logic signed [COEFF_W-1:0]         a2 [SECTION_COUNT],
     output logic signed [DATA_W-1:0]         y_out
@@ -155,35 +134,28 @@ module iir_sos_cascade #(
 
     assign stage_in[0] = x_in;
 
-    for (genvar sec = 0; sec < SECTION_COUNT; sec++) begin : g_sec
-        if (sec != 0) begin : g_pipe
-            always_ff @(posedge clk or negedge reset_n) begin
-                if (!reset_n) begin
-                    stage_in[sec] <= '0;
-                end else if (stage_en) begin
-                    stage_in[sec] <= stage_out[sec - 1];
-                end
-            end
+    generate
+        for (genvar sec = 1; sec < SECTION_COUNT; sec++) begin : g_stage_in
+            assign stage_in[sec] = stage_out[sec - 1];
         end
 
-        iir_biquad_df1_stage #(
-            .DATA_W(DATA_W),
-            .COEFF_W(COEFF_W),
-            .COEFF_FRAC_BITS(COEFF_FRAC_BITS),
-            .ACC_W(ACC_W)
-        ) u_biquad (
-            .clk(clk),
-            .reset_n(reset_n),
-            .stage_en(stage_en),
-            .x_in(stage_in[sec]),
-            .b0(b0[sec]),
-            .b1(b1[sec]),
-            .b2(b2[sec]),
-            .a1(a1[sec]),
-            .a2(a2[sec]),
-            .y_out(stage_out[sec])
-        );
-    end
+        for (genvar sec = 0; sec < SECTION_COUNT; sec++) begin : g_sec
+            iir_biquad_df1_stage #(
+                .DATA_W(DATA_W),
+                .COEFF_W(COEFF_W),
+                .COEFF_FRAC_BITS(COEFF_FRAC_BITS),
+                .ACC_W(ACC_W)
+            ) u_biquad (
+                .clk(clk),
+                .reset_n(reset_n),
+                .stage_en(stage_en),
+                .x_in(stage_in[sec]),
+                .a1(a1[sec]),
+                .a2(a2[sec]),
+                .y_out(stage_out[sec])
+            );
+        end
+    endgenerate
 
     assign y_out = stage_out[SECTION_COUNT-1];
 endmodule
@@ -210,9 +182,6 @@ module L1_09 #(
 
     input  logic                             bypass
 );
-    logic signed [COEFF_WIDTH-1:0] coeff_b0 [SECTION_COUNT];
-    logic signed [COEFF_WIDTH-1:0] coeff_b1 [SECTION_COUNT];
-    logic signed [COEFF_WIDTH-1:0] coeff_b2 [SECTION_COUNT];
     logic signed [COEFF_WIDTH-1:0] coeff_a1 [SECTION_COUNT];
     logic signed [COEFF_WIDTH-1:0] coeff_a2 [SECTION_COUNT];
 
@@ -236,9 +205,6 @@ module L1_09 #(
         .clk(clk),
         .reset_n(reset_n),
         .coeffs_ready(coeffs_ready),
-        .b0(coeff_b0),
-        .b1(coeff_b1),
-        .b2(coeff_b2),
         .a1(coeff_a1),
         .a2(coeff_a2)
     );
@@ -254,9 +220,6 @@ module L1_09 #(
         .reset_n(reset_n),
         .stage_en(run_valid),
         .x_in(i_in),
-        .b0(coeff_b0),
-        .b1(coeff_b1),
-        .b2(coeff_b2),
         .a1(coeff_a1),
         .a2(coeff_a2),
         .y_out(filt_i)
@@ -273,9 +236,6 @@ module L1_09 #(
         .reset_n(reset_n),
         .stage_en(run_valid),
         .x_in(q_in),
-        .b0(coeff_b0),
-        .b1(coeff_b1),
-        .b2(coeff_b2),
         .a1(coeff_a1),
         .a2(coeff_a2),
         .y_out(filt_q)
@@ -290,13 +250,15 @@ module L1_09 #(
         end else begin
             o_valid <= 1'b0;
 
-            iir_valid_pipe <= {iir_valid_pipe[IIR_LATENCY-2:0], iir_valid_in};
+            if (run_valid) begin
+                iir_valid_pipe <= {iir_valid_pipe[IIR_LATENCY-2:0], iir_valid_in};
+            end
 
             if (in_valid && coeffs_ready && bypass) begin
                 o_i     <= i_in;
                 o_q     <= q_in;
                 o_valid <= 1'b1;
-            end else if (iir_out_valid) begin
+            end else if (run_valid && iir_out_valid) begin
                 o_i     <= filt_i;
                 o_q     <= filt_q;
                 o_valid <= 1'b1;
