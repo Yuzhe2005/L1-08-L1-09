@@ -6,14 +6,15 @@ Current implementation:
 
 - `L1_08_MODE_SINGLE`: implemented by `l1_08_v2_core_single`.
 - `L1_08_MODE_PARALLEL`: implemented by `l1_08_v2_core_parallel`.
-- `L1_08_MODE_BUFFERED`: reserved, currently reports unsupported.
+- `L1_08_MODE_BUFFERED`: implemented by `l1_08_v2_input_buffer` feeding `l1_08_v2_core_parallel`.
 
 Compile order:
 
-1. `base_plan_l1_08_v2_pkg.sv`
-2. `L1-08_single.sv`
-3. `L1-08_parallel.sv`
-4. `top.sv`
+1. `l1_08_v2_pkg.sv`
+2. `l1_08_single_core.sv`
+3. `l1_08_input_buffer.sv`
+4. `l1_08_parallel_core.sv`
+5. `l1_08_top.sv`
 
 Top module:
 
@@ -23,7 +24,11 @@ Behavior:
 
 - In single mode, one valid clock consumes one IQ sample.
 - In parallel mode, one valid clock consumes `parallel_active_lanes` IQ samples, from 0 up to `PARALLEL_FACTOR`. `parallel_x_i[0]` and `parallel_x_q[0]` are the oldest samples in the bundle; `parallel_x_i[parallel_active_lanes-1]` and `parallel_x_q[parallel_active_lanes-1]` are the newest valid samples.
+- In buffered mode, `parallel_x_i/q` and `parallel_active_lanes` are the upstream write-side bundle. The input buffer queues these samples and feeds chronological bundles into the parallel compute core when the core asserts ready.
+- `input_ready` tells the upstream side whether the selected mode can accept the current input bundle. In buffered mode it is the buffer write-side ready; in parallel mode it is the parallel core ready; in single mode it follows coefficient readiness.
 - In unsupported modes, `mode_supported` is low, `mode_error` is high when `in_valid` is asserted, and output valid remains low.
 - When leaving single mode, the top-level selector synchronously clears the single core state so stale pipeline data cannot be emitted after a later mode switch.
-- When leaving parallel mode, the top-level selector synchronously clears the parallel core state for the same reason.
+- When leaving both parallel and buffered mode, the top-level selector synchronously clears the shared parallel compute core state for the same reason.
+- When leaving buffered mode, the input buffer is synchronously cleared.
 - If `parallel_active_lanes > PARALLEL_FACTOR`, the parallel core does not consume the input bundle and the top-level `mode_error` is asserted.
+- In buffered mode, `buffer_level`, `buffer_overflow_error`, and `buffer_active_lanes_error` expose buffer occupancy and input-side errors.

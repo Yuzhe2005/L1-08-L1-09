@@ -19,6 +19,7 @@ module l1_08_v2_core_parallel #(
     input  logic signed [DATA_WIDTH-1:0]      x_q [PARALLEL_FACTOR],
     input  logic [ACTIVE_LANES_W-1:0]         active_lanes,
     input  logic                              in_valid,
+    output logic                              input_ready,
     input  logic                              bypass,
     output logic signed [DATA_WIDTH-1:0]      y_i [PARALLEL_FACTOR],
     output logic signed [DATA_WIDTH-1:0]      y_q [PARALLEL_FACTOR],
@@ -52,9 +53,9 @@ module l1_08_v2_core_parallel #(
     end
 
     assign active_lanes_error = (int'(active_lanes) > PARALLEL_FACTOR);
+    assign input_ready = coeffs_ready && !clear && !active_lanes_error;
     assign run_valid = in_valid
-                     && coeffs_ready
-                     && !active_lanes_error
+                     && input_ready
                      && (active_lane_count != 0);
 
     // Bundle order is chronological: lane 0 is oldest, lane active_lanes-1 is newest.
@@ -160,7 +161,7 @@ module l1_08_v2_core_parallel #(
                 y_valid[lane]         <= 1'b0;
             end
             sample_count <= 0;
-        end else begin
+        end else begin 
             // MAC pipelines advance every clock, so valid pipelines must advance every clock too.
             for (int lane = 0; lane < PARALLEL_FACTOR; lane++) begin
                 lane_valid_pipe[lane] <= {lane_valid_pipe[lane][OUTPUT_LATENCY-2:0],

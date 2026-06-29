@@ -21,8 +21,8 @@ package base_plan_l1_08_v2_pkg;
                                             + ACCUM_EXTRA_BITS_DEFAULT;
     localparam int MAC_LATENCY_DEFAULT      = 7;
     localparam int SINGLE_OUTPUT_LATENCY    = MAC_LATENCY_DEFAULT + 1;
-    // parallel pipeline latency
     localparam int PARALLEL_FACTOR_DEFAULT  = 4;
+    localparam int INPUT_BUFFER_DEPTH_DEFAULT = 1024;
 endpackage
 
 `ifndef BASE_PLAN_L1_08_V2_COEFF_RESET_SVH

@@ -1,21 +1,21 @@
-下面我按“完全没看过解释”的方式重新讲整个 `RTL_design_v2`。先抓住总结构：
+﻿下面我按“完全没看过解释”的方式重新讲整个 `RTL_design_v2`。先抓住总结构：
 
 ```text
-base_plan_l1_08_v2_pkg.sv     放公共参数和 mode 定义
-L1-08_single.sv               放系数 bank、FIR MAC、single core
-L1-08_parallel.sv             放 dynamic parallel compute core
-top.sv                        顶层 mode selection
+l1_08_v2_pkg.sv     放公共参数和 mode 定义
+l1_08_single_core.sv               放系数 bank、FIR MAC、single core
+l1_08_parallel_core.sv             放 dynamic parallel compute core
+l1_08_top.sv                        顶层 mode selection
 coeff/l1_08_fir_coeff_reset.svh  80 tap 固定系数
 ```
 
 **整体数据流**
 
-`top.sv` 是入口。它根据 `mode` 选择：
+`l1_08_top.sv` 是入口。它根据 `mode` 选择：
 
 ```text
 L1_08_MODE_SINGLE   -> 使用 l1_08_v2_core_single
 L1_08_MODE_PARALLEL -> 使用 l1_08_v2_core_parallel
-L1_08_MODE_BUFFERED -> 目前保留，还没实现
+L1_08_MODE_BUFFERED -> 使用 l1_08_v2_input_buffer 缓存输入，再送入 parallel core
 ```
 
 single mode 是：
@@ -35,7 +35,7 @@ active_lanes 告诉它这一拍实际有几个 sample
 
 **1. Package 文件**
 
-[base_plan_l1_08_v2_pkg.sv](C:/Users/bjwb0005/Documents/Rigol_work/L1-08+L1-09/RTL_design_v2/base_plan_l1_08_v2_pkg.sv:1)
+[l1_08_v2_pkg.sv](C:/Users/bjwb0005/Documents/Rigol_work/L1-08+L1-09/RTL_design_v2/l1_08_v2_pkg.sv:1)
 
 第 1 行：
 
@@ -125,7 +125,7 @@ MAC pipeline 默认 7 级，总输出对齐 latency 用 8。默认最多 4-lane 
 
 **2. Top 文件**
 
-[top.sv](C:/Users/bjwb0005/Documents/Rigol_work/L1-08+L1-09/RTL_design_v2/top.sv:5)
+[l1_08_top.sv](C:/Users/bjwb0005/Documents/Rigol_work/L1-08+L1-09/RTL_design_v2/l1_08_top.sv:5)
 
 第 5-13 行：定义 `l1_08_v2_top` 参数。它把 package 里的默认参数拿进来，尤其是：
 
@@ -176,7 +176,7 @@ parallel_mode = mode == PARALLEL
 
 ```text
 single_in_valid   只在 single mode 时传给 single core
-parallel_in_valid 只在 parallel mode 时传给 parallel core
+parallel_core_in_valid 在 direct parallel mode 使用外部 `in_valid`，在 buffered mode 使用 buffer 的 `out_valid`
 ```
 
 第 55-56 行：
@@ -192,7 +192,7 @@ parallel_clear = !parallel_mode
 
 ```systemverilog
 mode_supported = single 或 parallel
-mode_error = unsupported mode 或 parallel_active_lanes_error
+mode_error = unsupported mode、parallel_active_lanes_error 或 buffered input/buffer error
 ```
 
 第 60-62 行：根据当前 mode 选择 `coeffs_ready` 来源。
@@ -219,7 +219,7 @@ default       -> 输出 0
 
 **3. Single 文件里的 coefficient bank**
 
-[L1-08_single.sv](C:/Users/bjwb0005/Documents/Rigol_work/L1-08+L1-09/RTL_design_v2/L1-08_single.sv:5)
+[l1_08_single_core.sv](C:/Users/bjwb0005/Documents/Rigol_work/L1-08+L1-09/RTL_design_v2/l1_08_single_core.sv:5)
 
 第 5-13 行：定义 `l1_08_v2_coeff_bank`。  
 它的工作是提供 80 个 FIR 系数。
@@ -262,7 +262,7 @@ reset 时加载固定系数。系数来自 [l1_08_fir_coeff_reset.svh](C:/Users/
 
 **4. Single 文件里的 FIR MAC**
 
-[L1-08_single.sv:26](C:/Users/bjwb0005/Documents/Rigol_work/L1-08+L1-09/RTL_design_v2/L1-08_single.sv:26)
+[l1_08_single_core.sv:26](C:/Users/bjwb0005/Documents/Rigol_work/L1-08+L1-09/RTL_design_v2/l1_08_single_core.sv:26)
 
 第 26-37 行：定义 `l1_08_v2_fir_mac`。  
 它输入：
@@ -332,7 +332,7 @@ prod[tap] = sample_window[tap] * coeff[tap]
 
 **5. Single Core**
 
-[L1-08_single.sv:140](C:/Users/bjwb0005/Documents/Rigol_work/L1-08+L1-09/RTL_design_v2/L1-08_single.sv:140)
+[l1_08_single_core.sv:140](C:/Users/bjwb0005/Documents/Rigol_work/L1-08+L1-09/RTL_design_v2/l1_08_single_core.sv:140)
 
 第 140-158 行：定义 single core 接口。
 
@@ -384,7 +384,7 @@ saturation 到 -32768~32767
 
 **6. Parallel Core**
 
-[L1-08_parallel.sv](C:/Users/bjwb0005/Documents/Rigol_work/L1-08+L1-09/RTL_design_v2/L1-08_parallel.sv:5)
+[l1_08_parallel_core.sv](C:/Users/bjwb0005/Documents/Rigol_work/L1-08+L1-09/RTL_design_v2/l1_08_parallel_core.sv:5)
 
 第 5-13 行：定义 parallel core 参数。  
 最重要的是：
