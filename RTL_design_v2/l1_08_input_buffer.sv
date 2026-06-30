@@ -5,69 +5,111 @@ import base_plan_l1_08_v2_pkg::*;
 module l1_08_v2_input_buffer #(
     parameter int DATA_WIDTH      = DATA_WIDTH_DEFAULT,
     parameter int PARALLEL_FACTOR = PARALLEL_FACTOR_DEFAULT,
-    parameter int BUFFER_DEPTH    = INPUT_BUFFER_DEPTH_DEFAULT,
-    parameter int ACTIVE_LANES_W  = (PARALLEL_FACTOR <= 1) ? 1 : $clog2(PARALLEL_FACTOR + 1),
-    parameter int LEVEL_W         = $clog2(BUFFER_DEPTH + PARALLEL_FACTOR + 1)
+    parameter int BUFFER_DEPTH    = INPUT_BUFFER_DEPTH_DEFAULT
 ) (
-    input  logic                         clk,
-    input  logic                         reset_n,
-    input  logic                         clear,
+    input  logic                         wr_clk,
+    input  logic                         wr_reset_n,
+    input  logic                         wr_clear,
 
-    input  logic signed [DATA_WIDTH-1:0] in_i [PARALLEL_FACTOR],
-    input  logic signed [DATA_WIDTH-1:0] in_q [PARALLEL_FACTOR],
-    input  logic [ACTIVE_LANES_W-1:0]    in_active_lanes,
+    input  logic signed [DATA_WIDTH-1:0] in_i,
+    input  logic signed [DATA_WIDTH-1:0] in_q,
     input  logic                         in_valid,
     output logic                         in_ready,
 
+    input  logic                         rd_clk,
+    input  logic                         rd_reset_n,
+    input  logic                         rd_clear,
+
     output logic signed [DATA_WIDTH-1:0] out_i [PARALLEL_FACTOR],
     output logic signed [DATA_WIDTH-1:0] out_q [PARALLEL_FACTOR],
-    output logic [ACTIVE_LANES_W-1:0]    out_active_lanes,
     output logic                         out_valid,
     input  logic                         out_ready,
 
-    output logic [LEVEL_W-1:0]           buffer_level,
-    output logic                         overflow_error,
-    output logic                         active_lanes_error
+    output logic                         overflow_error
 );
-    logic signed [DATA_WIDTH-1:0] i_queue [BUFFER_DEPTH];
-    logic signed [DATA_WIDTH-1:0] q_queue [BUFFER_DEPTH];
+    localparam int BUNDLE_DEPTH = BUFFER_DEPTH / PARALLEL_FACTOR;
+    localparam int FIFO_ADDR_W = (BUNDLE_DEPTH <= 2) ? 1 : $clog2(BUNDLE_DEPTH);
+    localparam int FIFO_PTR_W  = FIFO_ADDR_W + 1;
+    localparam int PACK_COUNT_W = (PARALLEL_FACTOR <= 1) ? 1 : $clog2(PARALLEL_FACTOR);
+    localparam int BUNDLE_W = DATA_WIDTH * PARALLEL_FACTOR;
 
-    int unsigned level_count;
-    int unsigned input_count;
-    int unsigned output_count;
-    int unsigned pop_count;
-    int unsigned retained_count;
-    int unsigned available_after_pop;
-    logic        pop_fire;
-    logic        push_fire;
+    localparam logic [PACK_COUNT_W-1:0] LastPackLane = PARALLEL_FACTOR - 1;
+
+    logic [BUNDLE_W-1:0] i_mem [BUNDLE_DEPTH];
+    logic [BUNDLE_W-1:0] q_mem [BUNDLE_DEPTH];
+    logic signed [DATA_WIDTH-1:0] pack_i [PARALLEL_FACTOR];
+    logic signed [DATA_WIDTH-1:0] pack_q [PARALLEL_FACTOR];
+    logic [BUNDLE_W-1:0] write_bundle_i;
+    logic [BUNDLE_W-1:0] write_bundle_q;
+    logic [PACK_COUNT_W-1:0] pack_count;
+
+    logic [FIFO_PTR_W-1:0] wr_bin;
+    logic [FIFO_PTR_W-1:0] wr_gray;
+    logic [FIFO_PTR_W-1:0] wr_bin_next;
+    logic [FIFO_ADDR_W-1:0] wr_addr;
+    logic wr_fire;
+    logic wr_full;
+
+    logic [FIFO_PTR_W-1:0] rd_bin;
+    logic [FIFO_PTR_W-1:0] rd_gray;
+    logic [FIFO_PTR_W-1:0] rd_bin_next;
+    logic [FIFO_ADDR_W-1:0] rd_addr;
+    logic rd_fire;
+    logic rd_empty;
+
+    logic [FIFO_PTR_W-1:0] rd_gray_wr_meta;
+    logic [FIFO_PTR_W-1:0] rd_gray_wr_sync;
+    logic [FIFO_PTR_W-1:0] wr_gray_rd_meta;
+    logic [FIFO_PTR_W-1:0] wr_gray_rd_sync;
+
+    function automatic logic [FIFO_PTR_W-1:0] bin_to_gray(
+        input logic [FIFO_PTR_W-1:0] value
+    );
+        return (value >> 1) ^ value;
+    endfunction
+
+    assign wr_gray = bin_to_gray(wr_bin);
+    assign rd_gray = bin_to_gray(rd_bin);
+    generate
+        if (FIFO_PTR_W == 2) begin : gen_full_depth_two
+            assign wr_full = (wr_gray == ~rd_gray_wr_sync);
+        end else begin : gen_full_depth_large
+            assign wr_full = (wr_gray == {~rd_gray_wr_sync[FIFO_PTR_W-1:FIFO_PTR_W-2],
+                                          rd_gray_wr_sync[FIFO_PTR_W-3:0]});
+        end
+    endgenerate
+
+    assign in_ready = (pack_count != LastPackLane) || !wr_full;
+    assign wr_fire = in_valid && in_ready;
+    assign wr_addr = wr_bin[FIFO_ADDR_W-1:0];
+    assign wr_bin_next = wr_bin + {{(FIFO_PTR_W-1){1'b0}}, (wr_fire && (pack_count == LastPackLane))};
+
+    assign rd_empty = (rd_gray == wr_gray_rd_sync);
+    assign out_valid = !rd_empty;
+    assign rd_fire = out_valid && out_ready;
+    assign rd_addr = rd_bin[FIFO_ADDR_W-1:0];
+    assign rd_bin_next = rd_bin + {{(FIFO_PTR_W-1){1'b0}}, rd_fire};
+
+    genvar lane_idx;
+    generate
+        for (lane_idx = 0; lane_idx < PARALLEL_FACTOR; lane_idx++) begin : gen_bundle_lanes
+            always_comb begin
+                if (lane_idx == (PARALLEL_FACTOR - 1)) begin
+                    write_bundle_i[lane_idx*DATA_WIDTH +: DATA_WIDTH] = in_i;
+                    write_bundle_q[lane_idx*DATA_WIDTH +: DATA_WIDTH] = in_q;
+                end else begin
+                    write_bundle_i[lane_idx*DATA_WIDTH +: DATA_WIDTH] = pack_i[lane_idx];
+                    write_bundle_q[lane_idx*DATA_WIDTH +: DATA_WIDTH] = pack_q[lane_idx];
+                end
+            end
+        end
+    endgenerate
 
     always_comb begin
-        input_count = int'(in_active_lanes);
-        if (input_count > PARALLEL_FACTOR) begin
-            input_count = PARALLEL_FACTOR;
-        end
-
-        if (level_count > PARALLEL_FACTOR) begin
-            output_count = PARALLEL_FACTOR;
-        end else begin
-            output_count = level_count;
-        end
-
-        out_valid = (output_count != 0);
-        pop_fire = out_valid && out_ready;
-        pop_count = pop_fire ? output_count : 0;
-        available_after_pop = BUFFER_DEPTH - level_count + pop_count;
-        active_lanes_error = (int'(in_active_lanes) > PARALLEL_FACTOR);
-        in_ready = !active_lanes_error && (input_count <= available_after_pop);
-        push_fire = in_valid && in_ready && (input_count != 0);
-        retained_count = level_count - pop_count;
-        buffer_level = level_count;
-        out_active_lanes = output_count;
-
         for (int lane = 0; lane < PARALLEL_FACTOR; lane++) begin
-            if (lane < output_count) begin
-                out_i[lane] = i_queue[lane];
-                out_q[lane] = q_queue[lane];
+            if (out_valid) begin
+                out_i[lane] = $signed(i_mem[rd_addr][lane*DATA_WIDTH +: DATA_WIDTH]);
+                out_q[lane] = $signed(q_mem[rd_addr][lane*DATA_WIDTH +: DATA_WIDTH]);
             end else begin
                 out_i[lane] = '0;
                 out_q[lane] = '0;
@@ -75,36 +117,51 @@ module l1_08_v2_input_buffer #(
         end
     end
 
-    always_ff @(posedge clk or negedge reset_n) begin
-        if (!reset_n || clear) begin
-            for (int idx = 0; idx < BUFFER_DEPTH; idx++) begin
-                i_queue[idx] <= '0;
-                q_queue[idx] <= '0;
+    always_ff @(posedge wr_clk or negedge wr_reset_n) begin
+        if (!wr_reset_n || wr_clear) begin
+            wr_bin          <= '0;
+            rd_gray_wr_meta <= '0;
+            rd_gray_wr_sync <= '0;
+            overflow_error  <= 1'b0;
+            pack_count      <= '0;
+            for (int lane = 0; lane < PARALLEL_FACTOR; lane++) begin
+                pack_i[lane] <= '0;
+                pack_q[lane] <= '0;
             end
-            level_count    <= 0;
-            overflow_error <= 1'b0;
         end else begin
+            rd_gray_wr_meta <= rd_gray;
+            rd_gray_wr_sync <= rd_gray_wr_meta;
+
             if (in_valid && !in_ready) begin
                 overflow_error <= 1'b1;
             end
 
-            for (int idx = 0; idx < BUFFER_DEPTH; idx++) begin
-                if (idx < retained_count) begin
-                    i_queue[idx] <= i_queue[idx + pop_count];
-                    q_queue[idx] <= q_queue[idx + pop_count];
-                end else if (push_fire && (idx < (retained_count + input_count))) begin
-                    i_queue[idx] <= in_i[idx - retained_count];
-                    q_queue[idx] <= in_q[idx - retained_count];
+            if (wr_fire) begin
+                if (pack_count == LastPackLane) begin
+                    i_mem[wr_addr] <= write_bundle_i;
+                    q_mem[wr_addr] <= write_bundle_q;
+                    wr_bin         <= wr_bin_next;
+                    pack_count     <= '0;
                 end else begin
-                    i_queue[idx] <= '0;
-                    q_queue[idx] <= '0;
+                    pack_i[pack_count] <= in_i;
+                    pack_q[pack_count] <= in_q;
+                    pack_count         <= pack_count + 1'b1;
                 end
             end
+        end
+    end
 
-            if (push_fire) begin
-                level_count <= retained_count + input_count;
-            end else begin
-                level_count <= retained_count;
+    always_ff @(posedge rd_clk or negedge rd_reset_n) begin
+        if (!rd_reset_n || rd_clear) begin
+            rd_bin          <= '0;
+            wr_gray_rd_meta <= '0;
+            wr_gray_rd_sync <= '0;
+        end else begin
+            wr_gray_rd_meta <= wr_gray;
+            wr_gray_rd_sync <= wr_gray_rd_meta;
+
+            if (rd_fire) begin
+                rd_bin <= rd_bin_next;
             end
         end
     end

@@ -27,8 +27,13 @@ module l1_08_v2_core_parallel #(
     output logic                              coeffs_ready,
     output logic                              active_lanes_error
 );
-    localparam int FullWindowSamples = TAP_NUM;
-    localparam int OUTPUT_LATENCY    = MAC_LATENCY + 1;
+    localparam int FullWindowSamples  = TAP_NUM;
+    localparam int OUTPUT_LATENCY     = MAC_LATENCY + 1;
+    localparam int SAMPLE_COUNT_W     = $clog2(TAP_NUM + 1);
+    localparam int SAMPLE_SUM_W       = $clog2(TAP_NUM + PARALLEL_FACTOR + 1);
+
+    localparam logic [ACTIVE_LANES_W-1:0]    ParallelFactorActive = PARALLEL_FACTOR;
+    localparam logic [SAMPLE_COUNT_W-1:0]    FullWindowSamplesCount = TAP_NUM;
 
     logic signed [DATA_WIDTH-1:0]  i_history [TAP_NUM];
     logic signed [DATA_WIDTH-1:0]  q_history [TAP_NUM];
@@ -42,21 +47,25 @@ module l1_08_v2_core_parallel #(
     logic [PARALLEL_FACTOR-1:0]    lane_out_valid;
     logic [PARALLEL_FACTOR-1:0]    lane_active;
     logic                          run_valid;
-    int unsigned                   active_lane_count;
-    int unsigned                   sample_count;
+    logic [ACTIVE_LANES_W-1:0]     active_lane_count_next;
+    logic [SAMPLE_COUNT_W-1:0]     sample_count;
+    logic [SAMPLE_SUM_W-1:0]       sample_count_plus_active;
 
     always_comb begin
-        active_lane_count = int'(active_lanes);
-        if (active_lane_count > PARALLEL_FACTOR) begin
-            active_lane_count = PARALLEL_FACTOR;
+        active_lane_count_next = active_lanes;
+        if (active_lane_count_next > ParallelFactorActive) begin
+            active_lane_count_next = ParallelFactorActive;
         end
+
+        sample_count_plus_active = logic [SAMPLE_SUM_W-1:0]'(sample_count)
+                                 + logic [SAMPLE_SUM_W-1:0]'(active_lane_count_next);
     end
 
     assign active_lanes_error = (int'(active_lanes) > PARALLEL_FACTOR);
     assign input_ready = coeffs_ready && !clear && !active_lanes_error;
     assign run_valid = in_valid
                      && input_ready
-                     && (active_lane_count != 0);
+                     && (active_lane_count_next != 0);
 
     // Bundle order is chronological: lane 0 is oldest, lane active_lanes-1 is newest.
     l1_08_v2_coeff_bank #(
@@ -73,7 +82,7 @@ module l1_08_v2_core_parallel #(
     genvar tap_idx;
     generate
         for (lane_idx = 0; lane_idx < PARALLEL_FACTOR; lane_idx++) begin : gen_parallel_lanes
-            assign lane_active[lane_idx] = (active_lane_count > lane_idx);
+            assign lane_active[lane_idx] = (active_lane_count_next > lane_idx);
             assign lane_valid_in[lane_idx] = run_valid
                                            && lane_active[lane_idx]
                                            && !bypass
@@ -170,19 +179,19 @@ module l1_08_v2_core_parallel #(
 
             if (run_valid) begin
                 for (int idx = 0; idx < TAP_NUM; idx++) begin
-                    if (idx < active_lane_count) begin
-                        i_history[idx] <= x_i[active_lane_count - 1 - idx];
-                        q_history[idx] <= x_q[active_lane_count - 1 - idx];
+                    if (idx < active_lane_count_next) begin
+                        i_history[idx] <= x_i[active_lane_count_next - 1 - idx];
+                        q_history[idx] <= x_q[active_lane_count_next - 1 - idx];
                     end else begin
-                        i_history[idx] <= i_history[idx - active_lane_count];
-                        q_history[idx] <= q_history[idx - active_lane_count];
+                        i_history[idx] <= i_history[idx - active_lane_count_next];
+                        q_history[idx] <= q_history[idx - active_lane_count_next];
                     end
                 end
 
-                if ((sample_count + active_lane_count) < FullWindowSamples) begin
-                    sample_count <= sample_count + active_lane_count;
+                if (sample_count_plus_active < FullWindowSamples) begin
+                    sample_count <= sample_count_plus_active[SAMPLE_COUNT_W-1:0];
                 end else begin
-                    sample_count <= FullWindowSamples;
+                    sample_count <= FullWindowSamplesCount;
                 end
 
                 for (int lane = 0; lane < PARALLEL_FACTOR; lane++) begin

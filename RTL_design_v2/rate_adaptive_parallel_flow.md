@@ -15,7 +15,7 @@ coeff/l1_08_fir_coeff_reset.svh  80 tap 固定系数
 ```text
 L1_08_MODE_SINGLE   -> 使用 l1_08_v2_core_single
 L1_08_MODE_PARALLEL -> 使用 l1_08_v2_core_parallel
-L1_08_MODE_BUFFERED -> 使用 l1_08_v2_input_buffer 缓存输入，再送入 parallel core
+L1_08_MODE_BUFFERED -> 使用 l1_08_v2_input_buffer 缓存单个 IQ 输入，攒够 PARALLEL_FACTOR 个 sample 后组成 bundle 送入 parallel core
 ```
 
 single mode 是：
@@ -141,7 +141,7 @@ ACTIVE_LANES_W = 表示 0~4 需要的 bit 数
 clk/reset_n       时钟和 reset
 mode              选择 single/parallel/buffered
 x_i/x_q           single mode 的 scalar 输入
-parallel_x_i/q    parallel mode 的 array 输入
+parallel_x_i/q    direct parallel mode 的 array 输入
 parallel_active_lanes 这一拍 parallel 有几个 sample 有效
 in_valid          输入有效
 bypass            直接旁路，不做 FIR
@@ -154,7 +154,7 @@ y_i/y_q/y_valid                   single 输出
 parallel_y_i/q/parallel_y_valid   parallel 输出
 coeffs_ready                      系数 ready
 mode_supported                    当前 mode 是否支持
-mode_error                        mode 或 active_lanes 是否非法
+mode_error                        mode、direct parallel active_lanes 或 buffered input 是否非法
 ```
 
 第 35-49 行：内部 signal。  
@@ -201,7 +201,7 @@ mode_error = unsupported mode、parallel_active_lanes_error 或 buffered input/b
 single core 接 scalar `x_i/x_q`，输出 scalar `single_y_i/q`。
 
 第 85-108 行：实例化 parallel core。  
-parallel core 接 array `parallel_x_i/q` 和 `parallel_active_lanes`，输出 array `parallel_core_y_i/q`。
+parallel core 接 array bundle 和 active lane count。direct parallel mode 下 bundle 来自 `parallel_x_i/q` 和 `parallel_active_lanes`；buffered mode 下 bundle 来自 input buffer。
 
 第 110-118 行：组合逻辑默认输出清零。  
 这是好习惯，避免 latch。
@@ -211,7 +211,7 @@ parallel core 接 array `parallel_x_i/q` 和 `parallel_active_lanes`，输出 ar
 ```text
 single mode   -> scalar y_i/y_q/y_valid
 parallel mode -> parallel_y_i/q/valid
-buffered mode -> 暂时输出 0
+buffered mode -> input buffer 输出 bundle，再复用 parallel core 输出 parallel_y_i/q/valid
 default       -> 输出 0
 ```
 

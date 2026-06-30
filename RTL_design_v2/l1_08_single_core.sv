@@ -159,6 +159,9 @@ module l1_08_v2_core_single #(
 );
     localparam int FullWindowSamples = TAP_NUM;
     localparam int OUTPUT_LATENCY    = MAC_LATENCY + 1;
+    localparam int SAMPLE_COUNT_W    = $clog2(TAP_NUM + 1);
+
+    localparam logic [SAMPLE_COUNT_W-1:0] FullWindowSamplesCount = TAP_NUM;
 
     logic signed [DATA_WIDTH-1:0]  i_window [TAP_NUM];
     logic signed [DATA_WIDTH-1:0]  q_window [TAP_NUM];
@@ -169,10 +172,10 @@ module l1_08_v2_core_single #(
     logic                          run_valid;
     logic                          mac_valid_in;
     logic                          mac_out_valid;
-    int unsigned                   sample_count;
+    logic [SAMPLE_COUNT_W-1:0]     sample_count;
 
     assign run_valid     = in_valid && coeffs_ready;
-    assign mac_valid_in  = run_valid && (sample_count >= FullWindowSamples) && !bypass;
+    assign mac_valid_in  = run_valid && (sample_count >= FullWindowSamplesCount) && !bypass;
     assign mac_out_valid = mac_valid_pipe[OUTPUT_LATENCY-1];
 
     l1_08_v2_coeff_bank #(
@@ -264,8 +267,8 @@ module l1_08_v2_core_single #(
                 i_window[0] <= x_i;
                 q_window[0] <= x_q;
 
-                if (sample_count < FullWindowSamples) begin
-                    sample_count <= sample_count + 1;
+                if (sample_count < FullWindowSamplesCount) begin
+                    sample_count <= sample_count + 1'b1;
                 end
 
                 if (bypass) begin
