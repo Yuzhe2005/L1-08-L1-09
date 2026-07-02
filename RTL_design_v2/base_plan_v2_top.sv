@@ -1,5 +1,10 @@
 `default_nettype none
 
+typedef enum logic {
+    BASE_PLAN_V2_MODE_SINGLE            = 1'b0,
+    BASE_PLAN_V2_MODE_BUFFERED_PARALLEL = 1'b1
+} base_plan_v2_mode_e;
+
 module base_plan_v2_top #(
     parameter int TAP_NUM                  = base_plan_l1_08_v2_pkg::TAP_NUM_DEFAULT,
     parameter int DATA_WIDTH               = base_plan_l1_08_v2_pkg::DATA_WIDTH_DEFAULT,
@@ -26,12 +31,9 @@ module base_plan_v2_top #(
     input  logic                                      sample_reset_n,
     input  logic                                      output_clk,
     input  logic                                      output_reset_n,
-    input  base_plan_l1_08_v2_pkg::l1_08_mode_e      mode,
+    input  base_plan_v2_mode_e                       mode,
     input  logic signed [DATA_WIDTH-1:0]              x_i,
     input  logic signed [DATA_WIDTH-1:0]              x_q,
-    input  logic signed [DATA_WIDTH-1:0]              parallel_x_i [PARALLEL_FACTOR],
-    input  logic signed [DATA_WIDTH-1:0]              parallel_x_q [PARALLEL_FACTOR],
-    input  logic [ACTIVE_LANES_W-1:0]                 parallel_active_lanes,
     input  logic                                      in_valid,
     output logic                                      input_ready,
     output logic signed [DATA_WIDTH-1:0]              y_i,
@@ -39,7 +41,6 @@ module base_plan_v2_top #(
     output logic                                      y_valid,
     input  logic                                      y_ready,
     output logic                                      coeffs_ready,
-    output logic                                      mode_supported,
     output logic                                      mode_error,
     output logic                                      input_buffer_overflow_error,
     output logic                                      output_buffer_overflow_error
@@ -47,10 +48,7 @@ module base_plan_v2_top #(
     localparam logic [ACTIVE_LANES_W-1:0] FullActiveLanes = ACTIVE_LANES_W'(PARALLEL_FACTOR);
 
     logic single_mode;
-    logic parallel_mode;
-    logic buffered_mode;
-    logic parallel_path_mode;
-    logic parallel_full_bundle;
+    logic buffered_parallel_mode;
 
     logic signed [DATA_WIDTH-1:0] l1_08_single_y_i;
     logic signed [DATA_WIDTH-1:0] l1_08_single_y_q;
@@ -88,7 +86,6 @@ module base_plan_v2_top #(
 
     logic signed [DATA_WIDTH-1:0] l1_08_parallel_x_i [PARALLEL_FACTOR];
     logic signed [DATA_WIDTH-1:0] l1_08_parallel_x_q [PARALLEL_FACTOR];
-    logic [ACTIVE_LANES_W-1:0]    l1_08_parallel_active_lanes;
     logic                         l1_08_parallel_in_valid;
     logic                         l1_08_parallel_input_ready;
     logic signed [DATA_WIDTH-1:0] l1_08_parallel_y_i [PARALLEL_FACTOR];
@@ -119,47 +116,35 @@ module base_plan_v2_top #(
     logic                         parallel_path_output_sync1;
     logic                         parallel_path_output_sync2;
 
-    assign single_mode = (mode == base_plan_l1_08_v2_pkg::L1_08_MODE_SINGLE);
-    assign parallel_mode = (mode == base_plan_l1_08_v2_pkg::L1_08_MODE_PARALLEL);
-    assign buffered_mode = (mode == base_plan_l1_08_v2_pkg::L1_08_MODE_BUFFERED);
-    assign parallel_path_mode = parallel_mode || buffered_mode;
-    assign parallel_full_bundle = (parallel_active_lanes == FullActiveLanes);
-    assign mode_supported = single_mode || parallel_mode || buffered_mode;
+    assign single_mode = (mode == BASE_PLAN_V2_MODE_SINGLE);
+    assign buffered_parallel_mode = (mode == BASE_PLAN_V2_MODE_BUFFERED_PARALLEL);
 
     assign l1_08_single_clear = !single_mode;
     assign l1_09_single_clear = !single_mode;
-    assign input_buffer_clear = !buffered_mode;
-    assign l1_08_parallel_clear = !parallel_path_mode;
-    assign l1_09_parallel_clear = !parallel_path_mode;
+    assign input_buffer_clear = !buffered_parallel_mode;
+    assign l1_08_parallel_clear = !buffered_parallel_mode;
+    assign l1_09_parallel_clear = !buffered_parallel_mode;
     assign single_output_wr_clear = !single_mode;
-    assign parallel_output_wr_clear = !parallel_path_mode;
+    assign parallel_output_wr_clear = !buffered_parallel_mode;
 
     assign coeffs_ready = single_mode ? (l1_08_single_coeffs_ready && l1_09_single_coeffs_ready)
-                        : parallel_path_mode ? (l1_08_parallel_coeffs_ready && l1_09_parallel_coeffs_ready)
+                        : buffered_parallel_mode ? (l1_08_parallel_coeffs_ready && l1_09_parallel_coeffs_ready)
                         : 1'b0;
 
     assign input_ready = single_mode ? (l1_08_single_coeffs_ready && l1_09_single_coeffs_ready)
-                       : parallel_mode ? (parallel_full_bundle
-                                       && l1_08_parallel_input_ready
-                                       && l1_09_parallel_input_ready)
-                       : buffered_mode ? (!input_buffer_wr_clear_sync2 && input_buffer_in_ready)
+                       : buffered_parallel_mode ? (!input_buffer_wr_clear_sync2 && input_buffer_in_ready)
                        : 1'b0;
 
-    assign mode_error = (in_valid && !mode_supported)
-                     || (parallel_mode && in_valid && !parallel_full_bundle)
-                     || (parallel_mode && in_valid && l1_08_parallel_active_lanes_error)
-                     || (buffered_mode && in_valid && !input_buffer_in_ready)
+    assign mode_error = (buffered_parallel_mode && in_valid && !input_buffer_in_ready)
+                     || l1_08_parallel_active_lanes_error
                      || input_buffer_overflow_error
                      || output_buffer_overflow_error;
 
-    assign l1_08_parallel_in_valid = (parallel_mode && in_valid
-                                   && parallel_full_bundle
-                                   && l1_09_parallel_input_ready)
-                                  || (buffered_mode
-                                   && input_buffer_out_valid
-                                   && l1_09_parallel_input_ready);
-    assign l1_09_parallel_in_valid = parallel_path_mode && (&l1_08_parallel_y_valid);
-    assign input_buffer_out_ready = buffered_mode
+    assign l1_08_parallel_in_valid = buffered_parallel_mode
+                                  && input_buffer_out_valid
+                                  && l1_09_parallel_input_ready;
+    assign l1_09_parallel_in_valid = buffered_parallel_mode && (&l1_08_parallel_y_valid);
+    assign input_buffer_out_ready = buffered_parallel_mode
                                   && l1_08_parallel_input_ready
                                   && l1_09_parallel_input_ready;
 
@@ -199,7 +184,7 @@ module base_plan_v2_top #(
         end else begin
             single_mode_output_sync1   <= single_mode;
             single_mode_output_sync2   <= single_mode_output_sync1;
-            parallel_path_output_sync1 <= parallel_path_mode;
+            parallel_path_output_sync1 <= buffered_parallel_mode;
             parallel_path_output_sync2 <= parallel_path_output_sync1;
         end
     end
@@ -227,12 +212,10 @@ module base_plan_v2_top #(
 
     always_comb begin
         for (int lane = 0; lane < PARALLEL_FACTOR; lane++) begin
-            l1_08_parallel_x_i[lane] = buffered_mode ? input_buffer_out_i[lane] : parallel_x_i[lane];
-            l1_08_parallel_x_q[lane] = buffered_mode ? input_buffer_out_q[lane] : parallel_x_q[lane];
+            l1_08_parallel_x_i[lane] = input_buffer_out_i[lane];
+            l1_08_parallel_x_q[lane] = input_buffer_out_q[lane];
         end
     end
-
-    assign l1_08_parallel_active_lanes = buffered_mode ? FullActiveLanes : parallel_active_lanes;
 
     l1_08_v2_core_single #(
         .TAP_NUM(TAP_NUM),
@@ -332,7 +315,7 @@ module base_plan_v2_top #(
         .clear(l1_08_parallel_clear),
         .x_i(l1_08_parallel_x_i),
         .x_q(l1_08_parallel_x_q),
-        .active_lanes(l1_08_parallel_active_lanes),
+        .active_lanes(FullActiveLanes),
         .in_valid(l1_08_parallel_in_valid),
         .input_ready(l1_08_parallel_input_ready),
         .y_i(l1_08_parallel_y_i),
