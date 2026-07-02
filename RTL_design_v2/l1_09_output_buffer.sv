@@ -1,18 +1,18 @@
 `default_nettype none
 
-import base_plan_l1_08_v2_pkg::*;
+import base_plan_l1_09_v2_pkg::*;
 
-module l1_08_v2_input_buffer #(
+module l1_09_v2_output_buffer #(
     parameter int DATA_WIDTH      = DATA_WIDTH_DEFAULT,
     parameter int PARALLEL_FACTOR = PARALLEL_FACTOR_DEFAULT,
-    parameter int BUFFER_DEPTH    = INPUT_BUFFER_DEPTH_DEFAULT
+    parameter int BUFFER_DEPTH    = 1024
 ) (
     input  logic                         wr_clk,
     input  logic                         wr_reset_n,
     input  logic                         wr_clear,
 
-    input  logic signed [DATA_WIDTH-1:0] in_i,
-    input  logic signed [DATA_WIDTH-1:0] in_q,
+    input  logic signed [DATA_WIDTH-1:0] in_i [PARALLEL_FACTOR],
+    input  logic signed [DATA_WIDTH-1:0] in_q [PARALLEL_FACTOR],
     input  logic                         in_valid,
     output logic                         in_ready,
 
@@ -20,8 +20,8 @@ module l1_08_v2_input_buffer #(
     input  logic                         rd_reset_n,
     input  logic                         rd_clear,
 
-    output logic signed [DATA_WIDTH-1:0] out_i [PARALLEL_FACTOR],
-    output logic signed [DATA_WIDTH-1:0] out_q [PARALLEL_FACTOR],
+    output logic signed [DATA_WIDTH-1:0] out_i,
+    output logic signed [DATA_WIDTH-1:0] out_q,
     output logic                         out_valid,
     input  logic                         out_ready,
 
@@ -30,18 +30,16 @@ module l1_08_v2_input_buffer #(
     localparam int BUNDLE_DEPTH = BUFFER_DEPTH / PARALLEL_FACTOR;
     localparam int FIFO_ADDR_W = (BUNDLE_DEPTH <= 2) ? 1 : $clog2(BUNDLE_DEPTH);
     localparam int FIFO_PTR_W  = FIFO_ADDR_W + 1;
-    localparam int PACK_COUNT_W = (PARALLEL_FACTOR <= 1) ? 1 : $clog2(PARALLEL_FACTOR);
+    localparam int LANE_COUNT_W = (PARALLEL_FACTOR <= 1) ? 1 : $clog2(PARALLEL_FACTOR);
     localparam int BUNDLE_W = DATA_WIDTH * PARALLEL_FACTOR;
 
-    localparam logic [PACK_COUNT_W-1:0] LastPackLane = PARALLEL_FACTOR - 1;
+    localparam logic [LANE_COUNT_W-1:0] LastLane = PARALLEL_FACTOR - 1;
 
     logic [BUNDLE_W-1:0] i_mem [BUNDLE_DEPTH];
     logic [BUNDLE_W-1:0] q_mem [BUNDLE_DEPTH];
-    logic signed [DATA_WIDTH-1:0] pack_i [PARALLEL_FACTOR];
-    logic signed [DATA_WIDTH-1:0] pack_q [PARALLEL_FACTOR];
     logic [BUNDLE_W-1:0] write_bundle_i;
     logic [BUNDLE_W-1:0] write_bundle_q;
-    logic [PACK_COUNT_W-1:0] pack_count;
+    logic [LANE_COUNT_W-1:0] unpack_count;
 
     logic [FIFO_PTR_W-1:0] wr_bin;
     logic [FIFO_PTR_W-1:0] wr_gray;
@@ -56,6 +54,7 @@ module l1_08_v2_input_buffer #(
     logic [FIFO_ADDR_W-1:0] rd_addr;
     logic rd_fire;
     logic rd_empty;
+    logic last_lane_fire;
 
     logic [FIFO_PTR_W-1:0] rd_gray_wr_sync1;
     logic [FIFO_PTR_W-1:0] rd_gray_wr_sync2;
@@ -79,52 +78,41 @@ module l1_08_v2_input_buffer #(
         end
     endgenerate
 
-    assign in_ready = (pack_count != LastPackLane) || !wr_full;
+    assign in_ready = !wr_clear && !wr_full;
     assign wr_fire = in_valid && in_ready;
     assign wr_addr = wr_bin[FIFO_ADDR_W-1:0];
-    assign wr_bin_next = wr_bin + {{(FIFO_PTR_W-1){1'b0}}, (wr_fire && (pack_count == LastPackLane))};
+    assign wr_bin_next = wr_bin + {{(FIFO_PTR_W-1){1'b0}}, wr_fire};
 
     assign rd_empty = (rd_gray == wr_gray_rd_sync2);
-    assign out_valid = !rd_empty;
+    assign out_valid = !rd_clear && !rd_empty;
     assign rd_fire = out_valid && out_ready;
+    assign last_lane_fire = rd_fire && (unpack_count == LastLane);
     assign rd_addr = rd_bin[FIFO_ADDR_W-1:0];
-    assign rd_bin_next = rd_bin + {{(FIFO_PTR_W-1){1'b0}}, rd_fire};
+    assign rd_bin_next = rd_bin + {{(FIFO_PTR_W-1){1'b0}}, last_lane_fire};
 
     always_comb begin
         for (int lane = 0; lane < PARALLEL_FACTOR; lane++) begin
-            if (lane == (PARALLEL_FACTOR - 1)) begin
-                write_bundle_i[lane*DATA_WIDTH +: DATA_WIDTH] = in_i;
-                write_bundle_q[lane*DATA_WIDTH +: DATA_WIDTH] = in_q;
-            end else begin
-                write_bundle_i[lane*DATA_WIDTH +: DATA_WIDTH] = pack_i[lane];
-                write_bundle_q[lane*DATA_WIDTH +: DATA_WIDTH] = pack_q[lane];
-            end
+            write_bundle_i[lane*DATA_WIDTH +: DATA_WIDTH] = in_i[lane];
+            write_bundle_q[lane*DATA_WIDTH +: DATA_WIDTH] = in_q[lane];
         end
     end
 
     always_comb begin
-        for (int lane = 0; lane < PARALLEL_FACTOR; lane++) begin
-            if (out_valid) begin
-                out_i[lane] = $signed(i_mem[rd_addr][lane*DATA_WIDTH +: DATA_WIDTH]);
-                out_q[lane] = $signed(q_mem[rd_addr][lane*DATA_WIDTH +: DATA_WIDTH]);
-            end else begin
-                out_i[lane] = '0;
-                out_q[lane] = '0;
-            end
+        out_i = '0;
+        out_q = '0;
+
+        if (out_valid) begin
+            out_i = $signed(i_mem[rd_addr][unpack_count*DATA_WIDTH +: DATA_WIDTH]);
+            out_q = $signed(q_mem[rd_addr][unpack_count*DATA_WIDTH +: DATA_WIDTH]);
         end
     end
 
     always_ff @(posedge wr_clk or negedge wr_reset_n) begin
         if (!wr_reset_n || wr_clear) begin
-            wr_bin          <= '0;
+            wr_bin           <= '0;
             rd_gray_wr_sync1 <= '0;
             rd_gray_wr_sync2 <= '0;
-            overflow_error  <= 1'b0;
-            pack_count      <= '0;
-            for (int lane = 0; lane < PARALLEL_FACTOR; lane++) begin
-                pack_i[lane] <= '0;
-                pack_q[lane] <= '0;
-            end
+            overflow_error   <= 1'b0;
         end else begin
             rd_gray_wr_sync1 <= rd_gray;
             rd_gray_wr_sync2 <= rd_gray_wr_sync1;
@@ -134,31 +122,30 @@ module l1_08_v2_input_buffer #(
             end
 
             if (wr_fire) begin
-                if (pack_count == LastPackLane) begin
-                    i_mem[wr_addr] <= write_bundle_i;
-                    q_mem[wr_addr] <= write_bundle_q;
-                    wr_bin         <= wr_bin_next;
-                    pack_count     <= '0;
-                end else begin
-                    pack_i[pack_count] <= in_i;
-                    pack_q[pack_count] <= in_q;
-                    pack_count         <= pack_count + 1'b1;
-                end
+                i_mem[wr_addr] <= write_bundle_i;
+                q_mem[wr_addr] <= write_bundle_q;
+                wr_bin         <= wr_bin_next;
             end
         end
     end
 
     always_ff @(posedge rd_clk or negedge rd_reset_n) begin
         if (!rd_reset_n || rd_clear) begin
-            rd_bin          <= '0;
+            rd_bin           <= '0;
             wr_gray_rd_sync1 <= '0;
             wr_gray_rd_sync2 <= '0;
+            unpack_count     <= '0;
         end else begin
             wr_gray_rd_sync1 <= wr_gray;
             wr_gray_rd_sync2 <= wr_gray_rd_sync1;
 
             if (rd_fire) begin
-                rd_bin <= rd_bin_next;
+                if (unpack_count == LastLane) begin
+                    unpack_count <= '0;
+                    rd_bin       <= rd_bin_next;
+                end else begin
+                    unpack_count <= unpack_count + 1'b1;
+                end
             end
         end
     end

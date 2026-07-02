@@ -151,32 +151,35 @@ module l1_08_v2_core_single #(
     input  logic signed [DATA_WIDTH-1:0]     x_i,
     input  logic signed [DATA_WIDTH-1:0]     x_q,
     input  logic                             in_valid,
-    input  logic                             bypass,
     output logic signed [DATA_WIDTH-1:0]     y_i,
     output logic signed [DATA_WIDTH-1:0]     y_q,
     output logic                             y_valid,
     output logic                             coeffs_ready
 );
-    localparam int FullWindowSamples = TAP_NUM;
     localparam int OUTPUT_LATENCY    = MAC_LATENCY + 1;
-    localparam int SAMPLE_COUNT_W    = $clog2(TAP_NUM + 1);
-
-    localparam logic [SAMPLE_COUNT_W-1:0] FullWindowSamplesCount = TAP_NUM;
 
     logic signed [DATA_WIDTH-1:0]  i_window [TAP_NUM];
     logic signed [DATA_WIDTH-1:0]  q_window [TAP_NUM];
+    logic signed [DATA_WIDTH-1:0]  mac_i_window [TAP_NUM];
+    logic signed [DATA_WIDTH-1:0]  mac_q_window [TAP_NUM];
     logic signed [COEFF_WIDTH-1:0] coeff [TAP_NUM];
     logic signed [ACCUM_WIDTH-1:0] mac_i;
     logic signed [ACCUM_WIDTH-1:0] mac_q;
     logic [OUTPUT_LATENCY-1:0]     mac_valid_pipe;
     logic                          run_valid;
-    logic                          mac_valid_in;
     logic                          mac_out_valid;
-    logic [SAMPLE_COUNT_W-1:0]     sample_count;
 
     assign run_valid     = in_valid && coeffs_ready;
-    assign mac_valid_in  = run_valid && (sample_count >= FullWindowSamplesCount) && !bypass;
     assign mac_out_valid = mac_valid_pipe[OUTPUT_LATENCY-1];
+
+    always_comb begin
+        mac_i_window[0] = x_i;
+        mac_q_window[0] = x_q;
+        for (int idx = 1; idx < TAP_NUM; idx++) begin
+            mac_i_window[idx] = i_window[idx - 1];
+            mac_q_window[idx] = q_window[idx - 1];
+        end
+    end
 
     l1_08_v2_coeff_bank #(
         .TAP_NUM(TAP_NUM),
@@ -196,7 +199,7 @@ module l1_08_v2_core_single #(
     ) u_mac_i (
         .clk(clk),
         .reset_n(reset_n),
-        .sample_window(i_window),
+        .sample_window(mac_i_window),
         .coeff(coeff),
         .mac_out(mac_i)
     );
@@ -209,7 +212,7 @@ module l1_08_v2_core_single #(
     ) u_mac_q (
         .clk(clk),
         .reset_n(reset_n),
-        .sample_window(q_window),
+        .sample_window(mac_q_window),
         .coeff(coeff),
         .mac_out(mac_q)
     );
@@ -250,14 +253,12 @@ module l1_08_v2_core_single #(
                 i_window[idx] <= '0;
                 q_window[idx] <= '0;
             end
-            sample_count   <= 0;
             mac_valid_pipe <= '0;
             y_i            <= '0;
             y_q            <= '0;
             y_valid        <= 1'b0;
         end else begin
-            // MAC pipelines advance every clock, so valid pipelines must advance every clock too.
-            mac_valid_pipe <= {mac_valid_pipe[OUTPUT_LATENCY-2:0], mac_valid_in};
+            mac_valid_pipe <= {mac_valid_pipe[OUTPUT_LATENCY-2:0], run_valid};
 
             if (run_valid) begin
                 for (int idx = TAP_NUM - 1; idx > 0; idx--) begin
@@ -266,27 +267,9 @@ module l1_08_v2_core_single #(
                 end
                 i_window[0] <= x_i;
                 q_window[0] <= x_q;
+            end
 
-                if (sample_count < FullWindowSamplesCount) begin
-                    sample_count <= sample_count + 1'b1;
-                end
-
-                if (bypass) begin
-                    y_i     <= x_i;
-                    y_q     <= x_q;
-                    y_valid <= 1'b1;
-                end else begin
-                    if (mac_out_valid) begin
-                        y_i     <= round_sat_q15(mac_i);
-                        y_q     <= round_sat_q15(mac_q);
-                        y_valid <= 1'b1;
-                    end else begin
-                        y_i     <= '0;
-                        y_q     <= '0;
-                        y_valid <= 1'b0;
-                    end
-                end
-            end else if (mac_out_valid) begin
+            if (mac_out_valid) begin
                 y_i     <= round_sat_q15(mac_i);
                 y_q     <= round_sat_q15(mac_q);
                 y_valid <= 1'b1;

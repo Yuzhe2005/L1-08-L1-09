@@ -20,20 +20,15 @@ module l1_08_v2_core_parallel #(
     input  logic [ACTIVE_LANES_W-1:0]         active_lanes,
     input  logic                              in_valid,
     output logic                              input_ready,
-    input  logic                              bypass,
     output logic signed [DATA_WIDTH-1:0]      y_i [PARALLEL_FACTOR],
     output logic signed [DATA_WIDTH-1:0]      y_q [PARALLEL_FACTOR],
     output logic [PARALLEL_FACTOR-1:0]        y_valid,
     output logic                              coeffs_ready,
     output logic                              active_lanes_error
 );
-    localparam int FullWindowSamples  = TAP_NUM;
     localparam int OUTPUT_LATENCY     = MAC_LATENCY + 1;
-    localparam int SAMPLE_COUNT_W     = $clog2(TAP_NUM + 1);
-    localparam int SAMPLE_SUM_W       = $clog2(TAP_NUM + PARALLEL_FACTOR + 1);
 
     localparam logic [ACTIVE_LANES_W-1:0]    ParallelFactorActive = PARALLEL_FACTOR;
-    localparam logic [SAMPLE_COUNT_W-1:0]    FullWindowSamplesCount = TAP_NUM;
 
     logic signed [DATA_WIDTH-1:0]  i_history [TAP_NUM];
     logic signed [DATA_WIDTH-1:0]  q_history [TAP_NUM];
@@ -48,17 +43,12 @@ module l1_08_v2_core_parallel #(
     logic [PARALLEL_FACTOR-1:0]    lane_active;
     logic                          run_valid;
     logic [ACTIVE_LANES_W-1:0]     active_lane_count_next;
-    logic [SAMPLE_COUNT_W-1:0]     sample_count;
-    logic [SAMPLE_SUM_W-1:0]       sample_count_plus_active;
 
     always_comb begin
         active_lane_count_next = active_lanes;
         if (active_lane_count_next > ParallelFactorActive) begin
             active_lane_count_next = ParallelFactorActive;
         end
-
-        sample_count_plus_active = logic [SAMPLE_SUM_W-1:0]'(sample_count)
-                                 + logic [SAMPLE_SUM_W-1:0]'(active_lane_count_next);
     end
 
     assign active_lanes_error = (int'(active_lanes) > PARALLEL_FACTOR);
@@ -84,9 +74,7 @@ module l1_08_v2_core_parallel #(
         for (lane_idx = 0; lane_idx < PARALLEL_FACTOR; lane_idx++) begin : gen_parallel_lanes
             assign lane_active[lane_idx] = (active_lane_count_next > lane_idx);
             assign lane_valid_in[lane_idx] = run_valid
-                                           && lane_active[lane_idx]
-                                           && !bypass
-                                           && ((sample_count + lane_idx + 1) >= FullWindowSamples);
+                                           && lane_active[lane_idx];
             assign lane_out_valid[lane_idx] = lane_valid_pipe[lane_idx][OUTPUT_LATENCY-1];
 
             for (tap_idx = 0; tap_idx < TAP_NUM; tap_idx++) begin : gen_lane_windows
@@ -169,7 +157,6 @@ module l1_08_v2_core_parallel #(
                 y_q[lane]             <= '0;
                 y_valid[lane]         <= 1'b0;
             end
-            sample_count <= 0;
         end else begin 
             // MAC pipelines advance every clock, so valid pipelines must advance every clock too.
             for (int lane = 0; lane < PARALLEL_FACTOR; lane++) begin
@@ -188,40 +175,17 @@ module l1_08_v2_core_parallel #(
                     end
                 end
 
-                if (sample_count_plus_active < FullWindowSamples) begin
-                    sample_count <= sample_count_plus_active[SAMPLE_COUNT_W-1:0];
-                end else begin
-                    sample_count <= FullWindowSamplesCount;
-                end
+            end
 
-                for (int lane = 0; lane < PARALLEL_FACTOR; lane++) begin
-                    if (bypass && lane_active[lane]) begin
-                        y_i[lane]     <= x_i[lane];
-                        y_q[lane]     <= x_q[lane];
-                        y_valid[lane] <= 1'b1;
-                    end else begin
-                        if (lane_out_valid[lane]) begin
-                            y_i[lane]     <= round_sat_q15(mac_i[lane]);
-                            y_q[lane]     <= round_sat_q15(mac_q[lane]);
-                            y_valid[lane] <= 1'b1;
-                        end else begin
-                            y_i[lane]     <= '0;
-                            y_q[lane]     <= '0;
-                            y_valid[lane] <= 1'b0;
-                        end
-                    end
-                end
-            end else begin
-                for (int lane = 0; lane < PARALLEL_FACTOR; lane++) begin
-                    if (lane_out_valid[lane]) begin
-                        y_i[lane]     <= round_sat_q15(mac_i[lane]);
-                        y_q[lane]     <= round_sat_q15(mac_q[lane]);
-                        y_valid[lane] <= 1'b1;
-                    end else begin
-                        y_i[lane]     <= '0;
-                        y_q[lane]     <= '0;
-                        y_valid[lane] <= 1'b0;
-                    end
+            for (int lane = 0; lane < PARALLEL_FACTOR; lane++) begin
+                if (lane_out_valid[lane]) begin
+                    y_i[lane]     <= round_sat_q15(mac_i[lane]);
+                    y_q[lane]     <= round_sat_q15(mac_q[lane]);
+                    y_valid[lane] <= 1'b1;
+                end else begin
+                    y_i[lane]     <= '0;
+                    y_q[lane]     <= '0;
+                    y_valid[lane] <= 1'b0;
                 end
             end
         end

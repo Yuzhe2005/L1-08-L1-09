@@ -31,20 +31,20 @@ module l1_09_v2_parallel_section #(
     parameter int COEFF_W         = COEFF_WIDTH_DEFAULT,
     parameter int COEFF_FRAC_BITS = COEFF_FRAC_BITS_DEFAULT,
     parameter int ACC_W           = ACCUM_WIDTH_DEFAULT,
-    parameter int PARALLEL_FACTOR = PARALLEL_FACTOR_DEFAULT,
-    parameter int ACTIVE_LANES_W  = (PARALLEL_FACTOR <= 1) ? 1 : $clog2(PARALLEL_FACTOR + 1)
+    parameter int PARALLEL_FACTOR = PARALLEL_FACTOR_DEFAULT
 ) (
     input  logic                         clk,
     input  logic                         reset_n,
     input  logic                         clear,
     input  logic                         stage_en,
-    input  logic [ACTIVE_LANES_W-1:0]    active_lanes,
     input  logic signed [DATA_W-1:0]     x_in [PARALLEL_FACTOR],
     input  logic signed [COEFF_W-1:0]    a1,
     input  logic signed [COEFF_W-1:0]    a2,
     output logic signed [DATA_W-1:0]     y_out [PARALLEL_FACTOR]
 );
     localparam int MULT_W = DATA_W + COEFF_W;
+    localparam int LAST_LANE = PARALLEL_FACTOR - 1;
+    localparam int PREV_LANE = PARALLEL_FACTOR - 2;
 
     logic signed [DATA_W-1:0] x1;
     logic signed [DATA_W-1:0] x2;
@@ -62,7 +62,6 @@ module l1_09_v2_parallel_section #(
     logic signed [MULT_W-1:0] prod_y1_a1 [PARALLEL_FACTOR];
     logic signed [MULT_W-1:0] prod_y2_a2 [PARALLEL_FACTOR];
     logic signed [ACC_W-1:0]  acc [PARALLEL_FACTOR];
-    int unsigned              active_lane_count;
 
     function automatic logic signed [DATA_W-1:0] round_sat_qx(
         input logic signed [ACC_W-1:0] value
@@ -93,11 +92,6 @@ module l1_09_v2_parallel_section #(
     endfunction
 
     always_comb begin
-        active_lane_count = int'(active_lanes);
-        if (active_lane_count > PARALLEL_FACTOR) begin
-            active_lane_count = PARALLEL_FACTOR;
-        end
-
         for (int lane = 0; lane < PARALLEL_FACTOR; lane++) begin
             x0_sel[lane] = x_in[lane];
             if (lane == 0) begin
@@ -142,24 +136,13 @@ module l1_09_v2_parallel_section #(
             end
         end else if (stage_en) begin
             for (int lane = 0; lane < PARALLEL_FACTOR; lane++) begin
-                if (lane < active_lane_count) begin
-                    y_out[lane] <= y_next[lane];
-                end else begin
-                    y_out[lane] <= '0;
-                end
+                y_out[lane] <= y_next[lane];
             end
 
-            if (active_lane_count == 1) begin
-                x1 <= x_in[0];
-                x2 <= x1;
-                y1 <= y_next[0];
-                y2 <= y1;
-            end else if (active_lane_count > 1) begin
-                x1 <= x_in[active_lane_count - 1];
-                x2 <= x_in[active_lane_count - 2];
-                y1 <= y_next[active_lane_count - 1];
-                y2 <= y_next[active_lane_count - 2];
-            end
+            x1 <= x_in[LAST_LANE];
+            y1 <= y_next[LAST_LANE];
+            x2 <= x_in[PREV_LANE];
+            y2 <= y_next[PREV_LANE];
         end
     end
 endmodule
@@ -170,55 +153,31 @@ module l1_09_v2_parallel_core #(
     parameter int COEFF_WIDTH     = COEFF_WIDTH_DEFAULT,
     parameter int COEFF_FRAC_BITS = COEFF_FRAC_BITS_DEFAULT,
     parameter int ACCUM_WIDTH     = ACCUM_WIDTH_DEFAULT,
-    parameter int PARALLEL_FACTOR = PARALLEL_FACTOR_DEFAULT,
-    parameter int ACTIVE_LANES_W  = (PARALLEL_FACTOR <= 1) ? 1 : $clog2(PARALLEL_FACTOR + 1)
+    parameter int PARALLEL_FACTOR = PARALLEL_FACTOR_DEFAULT
 ) (
     input  logic                              clk,
     input  logic                              reset_n,
     input  logic                              clear,
     input  logic signed [DATA_WIDTH-1:0]      x_i [PARALLEL_FACTOR],
     input  logic signed [DATA_WIDTH-1:0]      x_q [PARALLEL_FACTOR],
-    input  logic [ACTIVE_LANES_W-1:0]         active_lanes,
     input  logic                              in_valid,
     output logic                              input_ready,
-    input  logic                              bypass,
     output logic signed [DATA_WIDTH-1:0]      y_i [PARALLEL_FACTOR],
     output logic signed [DATA_WIDTH-1:0]      y_q [PARALLEL_FACTOR],
     output logic [PARALLEL_FACTOR-1:0]        y_valid,
-    output logic                              coeffs_ready,
-    output logic                              active_lanes_error
+    output logic                              coeffs_ready
 );
     logic signed [COEFF_WIDTH-1:0] coeff_a1 [SECTION_COUNT];
     logic signed [COEFF_WIDTH-1:0] coeff_a2 [SECTION_COUNT];
     logic signed [DATA_WIDTH-1:0]  stage_i [SECTION_COUNT+1][PARALLEL_FACTOR];
     logic signed [DATA_WIDTH-1:0]  stage_q [SECTION_COUNT+1][PARALLEL_FACTOR];
     logic [SECTION_COUNT:0]        stage_valid;
-    logic [ACTIVE_LANES_W-1:0]     stage_active_lanes [SECTION_COUNT+1];
     logic                          run_valid;
-    logic                          filter_in_valid;
-    int unsigned                   input_lane_count;
-    int unsigned                   output_lane_count;
 
-    always_comb begin
-        input_lane_count = int'(active_lanes);
-        if (input_lane_count > PARALLEL_FACTOR) begin
-            input_lane_count = PARALLEL_FACTOR;
-        end
-
-        output_lane_count = int'(stage_active_lanes[SECTION_COUNT]);
-        if (output_lane_count > PARALLEL_FACTOR) begin
-            output_lane_count = PARALLEL_FACTOR;
-        end
-    end
-
-    assign active_lanes_error = (int'(active_lanes) > PARALLEL_FACTOR);
-    assign input_ready = coeffs_ready && !clear && !active_lanes_error;
+    assign input_ready = coeffs_ready && !clear;
     assign run_valid = in_valid
-                     && input_ready
-                     && (input_lane_count != 0);
-    assign filter_in_valid = run_valid && !bypass;
-    assign stage_valid[0] = filter_in_valid;
-    assign stage_active_lanes[0] = active_lanes;
+                     && input_ready;
+    assign stage_valid[0] = run_valid;
 
     always_comb begin
         for (int lane = 0; lane < PARALLEL_FACTOR; lane++) begin
@@ -245,14 +204,12 @@ module l1_09_v2_parallel_core #(
                 .COEFF_W(COEFF_WIDTH),
                 .COEFF_FRAC_BITS(COEFF_FRAC_BITS),
                 .ACC_W(ACCUM_WIDTH),
-                .PARALLEL_FACTOR(PARALLEL_FACTOR),
-                .ACTIVE_LANES_W(ACTIVE_LANES_W)
+                .PARALLEL_FACTOR(PARALLEL_FACTOR)
             ) u_i_section (
                 .clk(clk),
                 .reset_n(reset_n),
                 .clear(clear),
                 .stage_en(stage_valid[sec]),
-                .active_lanes(stage_active_lanes[sec]),
                 .x_in(stage_i[sec]),
                 .a1(coeff_a1[sec]),
                 .a2(coeff_a2[sec]),
@@ -264,14 +221,12 @@ module l1_09_v2_parallel_core #(
                 .COEFF_W(COEFF_WIDTH),
                 .COEFF_FRAC_BITS(COEFF_FRAC_BITS),
                 .ACC_W(ACCUM_WIDTH),
-                .PARALLEL_FACTOR(PARALLEL_FACTOR),
-                .ACTIVE_LANES_W(ACTIVE_LANES_W)
+                .PARALLEL_FACTOR(PARALLEL_FACTOR)
             ) u_q_section (
                 .clk(clk),
                 .reset_n(reset_n),
                 .clear(clear),
                 .stage_en(stage_valid[sec]),
-                .active_lanes(stage_active_lanes[sec]),
                 .x_in(stage_q[sec]),
                 .a1(coeff_a1[sec]),
                 .a2(coeff_a2[sec]),
@@ -283,17 +238,11 @@ module l1_09_v2_parallel_core #(
     always_ff @(posedge clk or negedge reset_n) begin
         if (!reset_n || clear) begin
             for (int sec = 1; sec <= SECTION_COUNT; sec++) begin
-                stage_valid[sec]       <= 1'b0;
-                stage_active_lanes[sec] <= '0;
+                stage_valid[sec] <= 1'b0;
             end
         end else begin
             for (int sec = 1; sec <= SECTION_COUNT; sec++) begin
                 stage_valid[sec] <= stage_valid[sec - 1];
-                if (stage_valid[sec - 1]) begin
-                    stage_active_lanes[sec] <= stage_active_lanes[sec - 1];
-                end else begin
-                    stage_active_lanes[sec] <= '0;
-                end
             end
         end
     end
@@ -305,177 +254,11 @@ module l1_09_v2_parallel_core #(
             y_q[lane] = '0;
         end
 
-        if (run_valid && bypass) begin
+        if (stage_valid[SECTION_COUNT]) begin
             for (int lane = 0; lane < PARALLEL_FACTOR; lane++) begin
-                if (lane < input_lane_count) begin
-                    y_i[lane]     = x_i[lane];
-                    y_q[lane]     = x_q[lane];
-                    y_valid[lane] = 1'b1;
-                end
-            end
-        end else if (stage_valid[SECTION_COUNT]) begin
-            for (int lane = 0; lane < PARALLEL_FACTOR; lane++) begin
-                if (lane < output_lane_count) begin
-                    y_i[lane]     = stage_i[SECTION_COUNT][lane];
-                    y_q[lane]     = stage_q[SECTION_COUNT][lane];
-                    y_valid[lane] = 1'b1;
-                end
-            end
-        end
-    end
-endmodule
-
-module l1_09_v2_from_l1_08_parallel #(
-    parameter int SECTION_COUNT   = SECTION_COUNT_DEFAULT,
-    parameter int DATA_WIDTH      = DATA_WIDTH_DEFAULT,
-    parameter int COEFF_WIDTH     = COEFF_WIDTH_DEFAULT,
-    parameter int COEFF_FRAC_BITS = COEFF_FRAC_BITS_DEFAULT,
-    parameter int ACCUM_WIDTH     = ACCUM_WIDTH_DEFAULT,
-    parameter int PARALLEL_FACTOR = PARALLEL_FACTOR_DEFAULT,
-    parameter int ACTIVE_LANES_W  = (PARALLEL_FACTOR <= 1) ? 1 : $clog2(PARALLEL_FACTOR + 1),
-    parameter int PACKER_DEPTH    = PARALLEL_FACTOR * 2,
-    parameter int LEVEL_W         = $clog2(PACKER_DEPTH + PARALLEL_FACTOR + 1)
-) (
-    input  logic                         clk,
-    input  logic                         reset_n,
-    input  logic                         clear,
-    input  logic signed [DATA_WIDTH-1:0] l1_08_y_i [PARALLEL_FACTOR],
-    input  logic signed [DATA_WIDTH-1:0] l1_08_y_q [PARALLEL_FACTOR],
-    input  logic [PARALLEL_FACTOR-1:0]   l1_08_y_valid,
-    output logic                         input_ready,
-    input  logic                         bypass,
-    output logic signed [DATA_WIDTH-1:0] y_i [PARALLEL_FACTOR],
-    output logic signed [DATA_WIDTH-1:0] y_q [PARALLEL_FACTOR],
-    output logic [PARALLEL_FACTOR-1:0]   y_valid,
-    output logic                         coeffs_ready,
-    output logic [LEVEL_W-1:0]           packer_level,
-    output logic                         packer_overflow_error
-);
-    localparam logic [ACTIVE_LANES_W-1:0] FULL_ACTIVE_LANES = PARALLEL_FACTOR;
-
-    logic signed [DATA_WIDTH-1:0] i_queue [PACKER_DEPTH];
-    logic signed [DATA_WIDTH-1:0] q_queue [PACKER_DEPTH];
-    logic signed [DATA_WIDTH-1:0] push_i [PARALLEL_FACTOR];
-    logic signed [DATA_WIDTH-1:0] push_q [PARALLEL_FACTOR];
-    logic signed [DATA_WIDTH-1:0] core_x_i [PARALLEL_FACTOR];
-    logic signed [DATA_WIDTH-1:0] core_x_q [PARALLEL_FACTOR];
-    logic signed [DATA_WIDTH-1:0] core_y_i [PARALLEL_FACTOR];
-    logic signed [DATA_WIDTH-1:0] core_y_q [PARALLEL_FACTOR];
-    logic [PARALLEL_FACTOR-1:0]   core_y_valid;
-    logic                         core_input_ready;
-    logic                         core_in_valid;
-    logic                         core_active_lanes_error;
-    logic                         packer_ready;
-    logic                         push_fire;
-    int unsigned                  level_count;
-    int unsigned                  push_count;
-    int unsigned                  pop_count;
-    int unsigned                  retained_count;
-    int unsigned                  available_after_pop;
-
-    always_comb begin
-        push_count = 0;
-        for (int lane = 0; lane < PARALLEL_FACTOR; lane++) begin
-            push_i[lane] = '0;
-            push_q[lane] = '0;
-        end
-
-        for (int lane = 0; lane < PARALLEL_FACTOR; lane++) begin
-            if (l1_08_y_valid[lane]) begin
-                push_i[push_count] = l1_08_y_i[lane];
-                push_q[push_count] = l1_08_y_q[lane];
-                push_count++;
-            end
-        end
-
-        core_in_valid = !bypass
-                      && (level_count >= PARALLEL_FACTOR)
-                      && core_input_ready;
-        pop_count = core_in_valid ? PARALLEL_FACTOR : 0;
-        retained_count = level_count - pop_count;
-        available_after_pop = PACKER_DEPTH - level_count + pop_count;
-        packer_ready = (push_count <= available_after_pop);
-        push_fire = !bypass && packer_ready && (push_count != 0);
-        input_ready = bypass ? 1'b1 : packer_ready;
-        packer_level = level_count;
-
-        for (int lane = 0; lane < PARALLEL_FACTOR; lane++) begin
-            core_x_i[lane] = i_queue[lane];
-            core_x_q[lane] = q_queue[lane];
-        end
-    end
-
-    l1_09_v2_parallel_core #(
-        .SECTION_COUNT(SECTION_COUNT),
-        .DATA_WIDTH(DATA_WIDTH),
-        .COEFF_WIDTH(COEFF_WIDTH),
-        .COEFF_FRAC_BITS(COEFF_FRAC_BITS),
-        .ACCUM_WIDTH(ACCUM_WIDTH),
-        .PARALLEL_FACTOR(PARALLEL_FACTOR),
-        .ACTIVE_LANES_W(ACTIVE_LANES_W)
-    ) u_core (
-        .clk(clk),
-        .reset_n(reset_n),
-        .clear(clear || bypass),
-        .x_i(core_x_i),
-        .x_q(core_x_q),
-        .active_lanes(FULL_ACTIVE_LANES),
-        .in_valid(core_in_valid),
-        .input_ready(core_input_ready),
-        .bypass(1'b0),
-        .y_i(core_y_i),
-        .y_q(core_y_q),
-        .y_valid(core_y_valid),
-        .coeffs_ready(coeffs_ready),
-        .active_lanes_error(core_active_lanes_error)
-    );
-
-    always_ff @(posedge clk or negedge reset_n) begin
-        if (!reset_n || clear || bypass) begin
-            for (int idx = 0; idx < PACKER_DEPTH; idx++) begin
-                i_queue[idx] <= '0;
-                q_queue[idx] <= '0;
-            end
-            level_count           <= 0;
-            packer_overflow_error <= 1'b0;
-        end else begin
-            if ((push_count != 0) && !packer_ready) begin
-                packer_overflow_error <= 1'b1;
-            end
-
-            for (int idx = 0; idx < PACKER_DEPTH; idx++) begin
-                if (idx < retained_count) begin
-                    i_queue[idx] <= i_queue[idx + pop_count];
-                    q_queue[idx] <= q_queue[idx + pop_count];
-                end else if (push_fire && (idx < (retained_count + push_count))) begin
-                    i_queue[idx] <= push_i[idx - retained_count];
-                    q_queue[idx] <= push_q[idx - retained_count];
-                end else begin
-                    i_queue[idx] <= '0;
-                    q_queue[idx] <= '0;
-                end
-            end
-
-            if (push_fire) begin
-                level_count <= retained_count + push_count;
-            end else begin
-                level_count <= retained_count;
-            end
-        end
-    end
-
-    always_comb begin
-        if (bypass) begin
-            for (int lane = 0; lane < PARALLEL_FACTOR; lane++) begin
-                y_i[lane]     = l1_08_y_i[lane];
-                y_q[lane]     = l1_08_y_q[lane];
-                y_valid[lane] = l1_08_y_valid[lane];
-            end
-        end else begin
-            for (int lane = 0; lane < PARALLEL_FACTOR; lane++) begin
-                y_i[lane]     = core_y_i[lane];
-                y_q[lane]     = core_y_q[lane];
-                y_valid[lane] = core_y_valid[lane];
+                y_i[lane]     = stage_i[SECTION_COUNT][lane];
+                y_q[lane]     = stage_q[SECTION_COUNT][lane];
+                y_valid[lane] = 1'b1;
             end
         end
     end

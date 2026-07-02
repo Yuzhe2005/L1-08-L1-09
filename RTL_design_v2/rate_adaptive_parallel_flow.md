@@ -144,7 +144,6 @@ x_i/x_q           single mode 的 scalar 输入
 parallel_x_i/q    direct parallel mode 的 array 输入
 parallel_active_lanes 这一拍 parallel 有几个 sample 有效
 in_valid          输入有效
-bypass            直接旁路，不做 FIR
 ```
 
 第 25-33 行：输出端口。
@@ -372,11 +371,7 @@ saturation 到 -32768~32767
 
 第 259-265 行：如果 `run_valid`，shift window，并把新 sample 放到 `window[0]`。
 
-第 267-269 行：sample_count 加 1，最多加到 80。
-
-第 271-274 行：bypass 时直接输出输入 sample。
-
-第 276-284 行：如果 MAC result valid，就 round/saturate 后输出；否则输出 invalid。
+如果 MAC result valid，就 round/saturate 后输出；否则输出 invalid。
 
 第 286-294 行：即使这一拍没有新 input，旧的 MAC pipeline 结果也可能出来，所以仍然检查 `mac_out_valid`。
 
@@ -501,8 +496,7 @@ history[3]=old history[0]
 
 第 181-185 行：sample_count 加上 `active_lane_count`，最多到 80。
 
-第 187-203 行：如果 run_valid，处理输出。  
-bypass 且 lane active 时，直接输出输入；否则如果 MAC result valid，就输出 FIR result。
+如果 lane 的 MAC result valid，就输出 FIR result；否则该 lane 输出 invalid。
 
 第 204-216 行：如果这一拍没有新 input，也仍然可能有旧 pipeline result 出来，所以继续检查 `lane_out_valid`。
 
