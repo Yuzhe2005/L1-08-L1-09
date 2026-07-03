@@ -1,5 +1,9 @@
 # RTL Design V2 Architecture Report
 
+GitHub repository: [Yuzhe2005/L1-08-L1-09](https://github.com/Yuzhe2005/L1-08-L1-09)
+
+RTL design version2 folder: `RTL_design_v2`
+
 ## 1. 总体设计目标
 
 `RTL_design_v2` 是 Base Plan 的完整 RTL 结构。当前设计只有两个正式 mode：
@@ -50,21 +54,24 @@ coeff/l1_08_fir_coeff_reset.svh        L1-08 FIR fixed coefficients
 coeff/l1_09_allpass_coeff_reset.svh    L1-09 all-pass fixed coefficients
 ```
 
-推荐 compile order：
-
-```text
-1. l1_08_v2_pkg.sv
-2. l1_09_v2_pkg.sv
-3. l1_08_single_core.sv
-4. l1_08_parallel_core.sv
-5. l1_08_input_buffer.sv
-6. l1_09_single_core.sv
-7. l1_09_parallel_core.sv
-8. l1_09_output_buffer.sv
-9. base_plan_v2_top.sv
-```
-
 ## 3. Top-Level 数据流
+
+### Section Flow
+
+```mermaid
+flowchart LR
+    IN["scalar IQ input\nx_i / x_q / in_valid"] --> MODE{"mode_active"}
+
+    MODE -->|"BASE_PLAN_V2_MODE_SINGLE"| S0["L1-08 single FIR\nclk domain"]
+    S0 --> S1["L1-09 single all-pass IIR\nclk domain"]
+    S1 --> SOUT["scalar IQ output\ny_i / y_q / y_valid\nclk domain"]
+
+    MODE -->|"BASE_PLAN_V2_MODE_BUFFERED_PARALLEL"| P0["L1-08 input buffer\nsample-to-bundle async FIFO\nsample_clk -> clk"]
+    P0 --> P1["L1-08 parallel FIR\nfull bundle"]
+    P1 --> P2["L1-09 parallel all-pass IIR\nfull bundle"]
+    P2 --> P3["L1-09 output buffer\nbundle-to-sample async FIFO\nclk -> output_clk"]
+    P3 --> POUT["scalar IQ output\ny_i / y_q / y_valid\noutput_clk domain"]
+```
 
 ### Single Mode
 
@@ -91,6 +98,15 @@ x_i / x_q / in_valid
 
 buffered-parallel mode 中，外部仍然是一个 IQ 一个 IQ 输入。  
 `l1_08_input_buffer` 会把连续 sample 打包成 full bundle，然后送入 parallel compute chain。
+
+这个 mode 的长期吞吐条件是：
+
+```text
+average Fsample <= PARALLEL_FACTOR * Fclk
+```
+
+input buffer 可以吸收短时间 burst 或 clock mismatch，但不能长期消化超过 compute throughput 的输入流。
+当前版本只处理 full bundle；如果一段 finite input frame 的 sample 数不是 `PARALLEL_FACTOR` 的整数倍，最后不足一包的数据不会自动 flush 到 compute chain。
 
 ## 4. Clock Domain
 
@@ -122,6 +138,8 @@ single path 不跨 input/output buffer：
 clk -> L1-08 single -> L1-09 single -> scalar output
 ```
 
+CDC 总结：普通 data path 不直接用普通 register 跨 clock domain。`sample_clk -> clk` 通过 input async FIFO，`clk -> output_clk` 通过 output async FIFO；clear/error 这类 control/status signal 使用 two-flop synchronizer。
+
 ## 5. L1-08 结构
 
 ### L1-08 Single Core
@@ -141,6 +159,8 @@ current input + old history
 ```
 
 因此 accepted input sample 和 MAC 计算窗口是对齐的。
+
+L1-08 是 FIR，所以它只需要保存 past input sample，不需要保存 past output。single core 内部用 `i_window/q_window` 保存历史输入；每次接受一个新 sample 时，旧 sample 后移，新 sample 放到 history 最新位置。stall 时 history、MAC pipeline 和 valid pipeline 都保持不动。
 
 ### L1-08 Parallel Core
 
@@ -166,6 +186,8 @@ active_lanes = PARALLEL_FACTOR
 
 因此正式 top 不支持 partial bundle input。
 
+parallel FIR 使用共享的 `i_history/q_history` 保存 bundle 之前的历史输入。每个 lane 的 MAC window 由“当前 bundle 内较早 sample + old history”组成；当一个 full bundle 被接受后，history 会更新为该 bundle 最后几个 sample，最新 sample 放在 history 最前面。
+
 ## 6. L1-09 结构
 
 ### L1-09 Single Core
@@ -184,6 +206,8 @@ stage_valid[2] <= stage_valid[1]
 
 也就是说，一个 valid sample 进入 section 0 后，会每个 clock 往后推进一级，直到最终 output valid。
 
+L1-09 是 IIR/all-pass，所以每个 section 都需要保存 past input 和 past output。single section 内部保存 `x1/x2` 作为前两个输入，保存 `y1/y2` 作为前两个输出；只有对应 `stage_valid` 有效且 chain enabled 时，这些 state 才更新。
+
 ### L1-09 Parallel Core
 
 `l1_09_v2_parallel_core` 是 bundle version 的 all-pass IIR cascade。  
@@ -196,6 +220,10 @@ lane 0 -> lane 1 -> ... -> lane PARALLEL_FACTOR-1
 ```
 
 计算完成后，该 section 的 IIR state 更新到 bundle 最后两个 sample 对应的状态。
+
+parallel IIR 不能简单复制多个独立 single IIR，因为同一个 bundle 内后一个 sample 依赖前一个 sample 的 output。当前 parallel section 会按 lane 顺序计算：lane 0 使用旧 `x1/x2/y1/y2`，lane 1 使用 lane 0 刚得到的 `y_next`，后续 lane 依次类推。bundle 计算完成后，每个 section 的 `x1/x2/y1/y2` 更新为 bundle 最后两个 sample 的 input/output state。
+
+这些 lane 内部计算是在一个 section 的组合逻辑中展开的：同一个 clock 周期内先形成 lane 0 的 `y_next`，再被后续 lane 组合使用；clock edge 到来时才统一更新该 section 的 output 和 state。
 
 ## 7. Buffer 结构
 
@@ -324,18 +352,50 @@ single path 直接输出 scalar IQ；buffered-parallel path 经过 output buffer
 
 clock domain 需要按 mode 区分：single mode 下 `y_valid/y_ready` 属于 `clk` domain；buffered-parallel mode 下 `y_valid/y_ready` 属于 `output_clk` domain。
 
+### Status/Error Summary
+
+```text
+coeffs_ready:
+    当前选中 path 的 L1-08 和 L1-09 coefficients 都已经 ready
+
+input_ready:
+    top 当前可以接受一个 input sample
+
+mode_error:
+    mode lock 后发生 mode change，或 selected path / buffer 出现错误
+
+input_buffer_overflow_error:
+    sample write side 在 input buffer 无法继续接收时仍然输入数据
+
+output_buffer_overflow_error:
+    parallel output buffer 出现异常 overflow
+
+active_lanes_error:
+    parallel core 的 active_lanes 配置超过 PARALLEL_FACTOR
+```
+
 ## 9. 当前设计假设
 
 当前 RTL 依赖以下假设：
 
 ```text
 1. 系统只有两个 mode：single 和 buffered-parallel。
+
 2. `mode` 必须在 `reset_n` 释放前稳定；top 会在 reset 后第一个 `clk` 锁存 mode，运行中改变 mode 只拉高 `mode_error`。
+
 3. single path 不接 input/output buffer，`y_valid/y_ready` 属于 `clk` domain。
+
 4. buffered-parallel path 才接 input/output buffer，内部永远使用 full bundle，`y_valid/y_ready` 属于 `output_clk` domain。
+
 5. parallel path 当前要求 `PARALLEL_FACTOR >= 2`，默认值为 4。
-6. startup transient 不在 compute core 内部丢弃，由系统外层决定是否 mask。
+
+6. startup transient（reset/clear 后 history/state 还没被真实 sample 填满时的初始过渡输出）不在 compute core 内部丢弃，由系统外层决定是否 mask。
+
 7. BUFFER_DEPTH / PARALLEL_FACTOR 应按 2 的幂配置，以匹配 async FIFO pointer 逻辑。
+
+8. buffered-parallel mode 的长期平均输入速率必须满足 average Fsample <= PARALLEL_FACTOR * Fclk。
+
+9. 当前 buffered-parallel mode 不支持 partial bundle flush；finite frame 长度应为 PARALLEL_FACTOR 的整数倍，或由系统外层处理尾包。
 ```
 
 ## 10. 总结
