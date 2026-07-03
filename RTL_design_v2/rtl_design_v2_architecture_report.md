@@ -14,7 +14,7 @@ BASE_PLAN_V2_MODE_BUFFERED_PARALLEL
 ```text
 single mode:
     面向 Fclk >= Fsample
-    一个 valid input sample 进入 single compute chain
+    一个 valid input sample 直接进入 single compute chain，不接 input/output buffer
 
 buffered-parallel mode:
     面向 Fclk < Fsample
@@ -27,7 +27,7 @@ buffered-parallel mode:
 y_i / y_q / y_valid / y_ready
 ```
 
-也就是说，parallel path 内部虽然使用 bundle 计算，但最终经过 output buffer 拆回一个 IQ 一个 IQ 输出。
+也就是说，single path 是纯 compute path；parallel path 内部使用 bundle 计算，并最终经过 output buffer 拆回一个 IQ 一个 IQ 输出。
 
 ## 2. 文件结构
 
@@ -72,12 +72,11 @@ coeff/l1_09_allpass_coeff_reset.svh    L1-09 all-pass fixed coefficients
 x_i / x_q / in_valid
     -> L1-08 single FIR
     -> L1-09 single all-pass IIR
-    -> output buffer, PARALLEL_FACTOR = 1
     -> y_i / y_q / y_valid
 ```
 
-single mode 不使用 input buffer。  
-它假设 compute clock `clk` 足够快，能直接处理输入 sample stream。
+single mode 不使用 input buffer，也不使用 output buffer。
+它假设 compute clock `clk` 足够快，能直接处理输入 sample stream，并且 single mode 的最终输出跟随 `clk` domain。
 
 ### Buffered-Parallel Mode
 
@@ -107,14 +106,20 @@ clk:
     L1-08 / L1-09 compute core 都在这个 domain
 
 output_clk:
-    output buffer read side
-    向下游输出 scalar IQ stream
+    parallel output buffer read side
+    buffered-parallel mode 下向下游输出 scalar IQ stream
 ```
 
 因此 buffered-parallel path 的跨时钟关系是：
 
 ```text
 sample_clk -> input buffer -> clk -> output buffer -> output_clk
+```
+
+single path 不跨 input/output buffer：
+
+```text
+clk -> L1-08 single -> L1-09 single -> scalar output
 ```
 
 ## 5. L1-08 结构
@@ -259,8 +264,10 @@ output buffer 和下游之间有 valid-ready handshake：
 y_valid && y_ready
 ```
 
-当前设计假设 output buffer 足够大，因此 L1-09 parallel 不接收来自 output buffer 的 backpressure。  
-如果 output buffer 满了，会拉高：
+当前设计已经把 output buffer 的 `in_ready` 接回 parallel compute chain。
+当 output buffer 没有空间时，parallel compute chain 会暂停，input buffer 不再 pop 新 bundle。
+
+如果出现异常 overflow，会拉高：
 
 ```text
 output_buffer_overflow_error
@@ -281,8 +288,11 @@ input_ready:
 single mode 中：
 
 ```text
-input_ready = L1-08 single ready && L1-09 single ready
+input_ready = L1-08 single ready && L1-09 single ready && single chain not stalled
 ```
+
+single path 不接 output buffer。
+如果 single output 当前 valid 但 `y_ready` 为低，single compute chain 会暂停，直到该 output 被下游接收。
 
 buffered-parallel mode 中：
 
@@ -297,6 +307,7 @@ L1-09 parallel input valid = &L1-08 parallel y_valid
 ```
 
 由于 top 固定 full bundle，所以只有 L1-08 parallel 所有 lanes 都 valid 时，L1-09 parallel 才接收 bundle。
+同时，parallel output buffer 如果 not ready，L1-08 parallel / L1-09 parallel 会一起暂停，input buffer 也不会 pop 新 bundle。
 
 ### Final Output
 
@@ -308,7 +319,10 @@ y_ready:
     下游可以接收当前 IQ sample
 ```
 
-single 和 buffered-parallel 两条 path 的输出都经过 output buffer，因此最终接口保持一致。
+single path 直接输出 scalar IQ；buffered-parallel path 经过 output buffer 后输出 scalar IQ。
+因此两条 path 的最终数据形态一致，但 single mode 不使用 output buffer，parallel mode 才使用 output buffer。
+
+clock domain 需要按 mode 区分：single mode 下 `y_valid/y_ready` 属于 `clk` domain；buffered-parallel mode 下 `y_valid/y_ready` 属于 `output_clk` domain。
 
 ## 9. 当前设计假设
 
@@ -316,11 +330,12 @@ single 和 buffered-parallel 两条 path 的输出都经过 output buffer，因�
 
 ```text
 1. 系统只有两个 mode：single 和 buffered-parallel。
-2. buffered-parallel path 内部永远使用 full bundle。
-3. L1-09 parallel 输出到 output buffer 时不做 backpressure。
-4. output buffer 被认为足够大；如果实际满了，用 overflow_error 报错。
-5. startup transient 不在 compute core 内部丢弃，由系统外层决定是否 mask。
-6. BUFFER_DEPTH / PARALLEL_FACTOR 应按 2 的幂配置，以匹配 async FIFO pointer 逻辑。
+2. `mode` 必须在 `reset_n` 释放前稳定；top 会在 reset 后第一个 `clk` 锁存 mode，运行中改变 mode 只拉高 `mode_error`。
+3. single path 不接 input/output buffer，`y_valid/y_ready` 属于 `clk` domain。
+4. buffered-parallel path 才接 input/output buffer，内部永远使用 full bundle，`y_valid/y_ready` 属于 `output_clk` domain。
+5. parallel path 当前要求 `PARALLEL_FACTOR >= 2`，默认值为 4。
+6. startup transient 不在 compute core 内部丢弃，由系统外层决定是否 mask。
+7. BUFFER_DEPTH / PARALLEL_FACTOR 应按 2 的幂配置，以匹配 async FIFO pointer 逻辑。
 ```
 
 ## 10. 总结

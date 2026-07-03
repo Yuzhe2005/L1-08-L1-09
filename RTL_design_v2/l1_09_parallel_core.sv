@@ -158,6 +158,7 @@ module l1_09_v2_parallel_core #(
     input  logic                              clk,
     input  logic                              reset_n,
     input  logic                              clear,
+    input  logic                              enable,
     input  logic signed [DATA_WIDTH-1:0]      x_i [PARALLEL_FACTOR],
     input  logic signed [DATA_WIDTH-1:0]      x_q [PARALLEL_FACTOR],
     input  logic                              in_valid,
@@ -174,7 +175,7 @@ module l1_09_v2_parallel_core #(
     logic [SECTION_COUNT:0]        stage_valid;
     logic                          run_valid;
 
-    assign input_ready = coeffs_ready && !clear;
+    assign input_ready = enable && coeffs_ready && !clear;
     assign run_valid = in_valid
                      && input_ready;
     assign stage_valid[0] = run_valid;
@@ -209,7 +210,7 @@ module l1_09_v2_parallel_core #(
                 .clk(clk),
                 .reset_n(reset_n),
                 .clear(clear),
-                .stage_en(stage_valid[sec]),
+                .stage_en(enable && stage_valid[sec]),
                 .x_in(stage_i[sec]),
                 .a1(coeff_a1[sec]),
                 .a2(coeff_a2[sec]),
@@ -226,7 +227,7 @@ module l1_09_v2_parallel_core #(
                 .clk(clk),
                 .reset_n(reset_n),
                 .clear(clear),
-                .stage_en(stage_valid[sec]),
+                .stage_en(enable && stage_valid[sec]),
                 .x_in(stage_q[sec]),
                 .a1(coeff_a1[sec]),
                 .a2(coeff_a2[sec]),
@@ -240,7 +241,7 @@ module l1_09_v2_parallel_core #(
             for (int sec = 1; sec <= SECTION_COUNT; sec++) begin
                 stage_valid[sec] <= 1'b0;
             end
-        end else begin
+        end else if (enable) begin
             for (int sec = 1; sec <= SECTION_COUNT; sec++) begin
                 stage_valid[sec] <= stage_valid[sec - 1];
             end

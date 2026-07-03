@@ -31,6 +31,7 @@ module l1_08_v2_fir_mac #(
 ) (
     input  logic                         clk,
     input  logic                         reset_n,
+    input  logic                         enable,
     input  logic signed [DATA_W-1:0]     sample_window [TAP_NUM],
     input  logic signed [COEFF_W-1:0]    coeff [TAP_NUM],
     output logic signed [ACC_W-1:0]      mac_out
@@ -79,7 +80,7 @@ module l1_08_v2_fir_mac #(
                 s6[idx] <= '0;
             end
             mac_out <= '0;
-        end else begin
+        end else if (enable) begin
             for (int idx = 0; idx < S1_NUM; idx++) begin
                 if ((2 * idx + 1) < TAP_NUM) begin
                     s1[idx] <= $signed(prod[2 * idx]) + $signed(prod[2 * idx + 1]);
@@ -148,6 +149,7 @@ module l1_08_v2_core_single #(
     input  logic                             clk,
     input  logic                             reset_n,
     input  logic                             clear,
+    input  logic                             enable,
     input  logic signed [DATA_WIDTH-1:0]     x_i,
     input  logic signed [DATA_WIDTH-1:0]     x_q,
     input  logic                             in_valid,
@@ -169,7 +171,7 @@ module l1_08_v2_core_single #(
     logic                          run_valid;
     logic                          mac_out_valid;
 
-    assign run_valid     = in_valid && coeffs_ready;
+    assign run_valid     = enable && in_valid && coeffs_ready;
     assign mac_out_valid = mac_valid_pipe[OUTPUT_LATENCY-1];
 
     always_comb begin
@@ -199,6 +201,7 @@ module l1_08_v2_core_single #(
     ) u_mac_i (
         .clk(clk),
         .reset_n(reset_n),
+        .enable(enable),
         .sample_window(mac_i_window),
         .coeff(coeff),
         .mac_out(mac_i)
@@ -212,6 +215,7 @@ module l1_08_v2_core_single #(
     ) u_mac_q (
         .clk(clk),
         .reset_n(reset_n),
+        .enable(enable),
         .sample_window(mac_q_window),
         .coeff(coeff),
         .mac_out(mac_q)
@@ -257,7 +261,7 @@ module l1_08_v2_core_single #(
             y_i            <= '0;
             y_q            <= '0;
             y_valid        <= 1'b0;
-        end else begin
+        end else if (enable) begin
             mac_valid_pipe <= {mac_valid_pipe[OUTPUT_LATENCY-2:0], run_valid};
 
             if (run_valid) begin
