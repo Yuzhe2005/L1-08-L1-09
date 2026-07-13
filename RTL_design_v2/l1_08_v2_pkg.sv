@@ -20,7 +20,7 @@ package base_plan_l1_08_v2_pkg;
                                             + COEFF_WIDTH_DEFAULT
                                             + ACCUM_EXTRA_BITS_DEFAULT;
     localparam int MAC_LATENCY_DEFAULT      = 7;
-    localparam int SINGLE_OUTPUT_LATENCY    = MAC_LATENCY_DEFAULT + 1;
+    localparam int SINGLE_OUTPUT_LATENCY    = MAC_LATENCY_DEFAULT;
     localparam int PARALLEL_FACTOR_DEFAULT  = 4;
     localparam int INPUT_BUFFER_DEPTH_DEFAULT = 1024;
 endpackage

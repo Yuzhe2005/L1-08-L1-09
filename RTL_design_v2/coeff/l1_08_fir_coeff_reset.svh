@@ -1,84 +1,85 @@
-// Auto-generated synthesizable async-reset coefficient init. DO NOT EDIT.
+// Auto-generated constant coefficient ROM contents. DO NOT EDIT.
 // Source: data/base_plan_pipeline_data_20260615_150846/l1_08_h2_fixed_point/h2_fir_coefficients_fixed.csv
 // Profile: bw_1g, tap80, Q16.13
-            coeff_mem[0] <= 16'sd260;
-            coeff_mem[1] <= 16'sd1147;
-            coeff_mem[2] <= 16'sd1607;
-            coeff_mem[3] <= 16'sd207;
-            coeff_mem[4] <= -16'sd263;
-            coeff_mem[5] <= -16'sd989;
-            coeff_mem[6] <= -16'sd1228;
-            coeff_mem[7] <= 16'sd1060;
-            coeff_mem[8] <= 16'sd1735;
-            coeff_mem[9] <= -16'sd587;
-            coeff_mem[10] <= -16'sd1225;
-            coeff_mem[11] <= -16'sd124;
-            coeff_mem[12] <= 16'sd159;
-            coeff_mem[13] <= 16'sd767;
-            coeff_mem[14] <= 16'sd915;
-            coeff_mem[15] <= -16'sd1123;
-            coeff_mem[16] <= -16'sd1587;
-            coeff_mem[17] <= 16'sd1099;
-            coeff_mem[18] <= 16'sd1677;
-            coeff_mem[19] <= -16'sd729;
-            coeff_mem[20] <= -16'sd1225;
-            coeff_mem[21] <= 16'sd140;
-            coeff_mem[22] <= 16'sd424;
-            coeff_mem[23] <= 16'sd489;
-            coeff_mem[24] <= 16'sd463;
-            coeff_mem[25] <= -16'sd989;
-            coeff_mem[26] <= -16'sd1190;
-            coeff_mem[27] <= 16'sd1239;
-            coeff_mem[28] <= 16'sd1591;
-            coeff_mem[29] <= -16'sd1192;
-            coeff_mem[30] <= -16'sd1605;
-            coeff_mem[31] <= 16'sd887;
-            coeff_mem[32] <= 16'sd1281;
-            coeff_mem[33] <= -16'sd429;
-            coeff_mem[34] <= -16'sd752;
-            coeff_mem[35] <= -16'sd37;
-            coeff_mem[36] <= 16'sd186;
-            coeff_mem[37] <= 16'sd365;
-            coeff_mem[38] <= 16'sd253;
-            coeff_mem[39] <= -16'sd451;
-            coeff_mem[40] <= -16'sd451;
-            coeff_mem[41] <= 16'sd253;
-            coeff_mem[42] <= 16'sd365;
-            coeff_mem[43] <= 16'sd186;
-            coeff_mem[44] <= -16'sd37;
-            coeff_mem[45] <= -16'sd752;
-            coeff_mem[46] <= -16'sd429;
-            coeff_mem[47] <= 16'sd1281;
-            coeff_mem[48] <= 16'sd887;
-            coeff_mem[49] <= -16'sd1605;
-            coeff_mem[50] <= -16'sd1192;
-            coeff_mem[51] <= 16'sd1591;
-            coeff_mem[52] <= 16'sd1239;
-            coeff_mem[53] <= -16'sd1190;
-            coeff_mem[54] <= -16'sd989;
-            coeff_mem[55] <= 16'sd463;
-            coeff_mem[56] <= 16'sd489;
-            coeff_mem[57] <= 16'sd424;
-            coeff_mem[58] <= 16'sd140;
-            coeff_mem[59] <= -16'sd1225;
-            coeff_mem[60] <= -16'sd729;
-            coeff_mem[61] <= 16'sd1677;
-            coeff_mem[62] <= 16'sd1099;
-            coeff_mem[63] <= -16'sd1587;
-            coeff_mem[64] <= -16'sd1123;
-            coeff_mem[65] <= 16'sd915;
-            coeff_mem[66] <= 16'sd767;
-            coeff_mem[67] <= 16'sd159;
-            coeff_mem[68] <= -16'sd124;
-            coeff_mem[69] <= -16'sd1225;
-            coeff_mem[70] <= -16'sd587;
-            coeff_mem[71] <= 16'sd1735;
-            coeff_mem[72] <= 16'sd1060;
-            coeff_mem[73] <= -16'sd1228;
-            coeff_mem[74] <= -16'sd989;
-            coeff_mem[75] <= -16'sd263;
-            coeff_mem[76] <= 16'sd207;
-            coeff_mem[77] <= 16'sd1607;
-            coeff_mem[78] <= 16'sd1147;
-            coeff_mem[79] <= 16'sd260;
-
+localparam logic signed [15:0] L1_08_FIR_COEFF_ROM [0:79] = '{
+    16'sd260,
+    16'sd1147,
+    16'sd1607,
+    16'sd207,
+    -16'sd263,
+    -16'sd989,
+    -16'sd1228,
+    16'sd1060,
+    16'sd1735,
+    -16'sd587,
+    -16'sd1225,
+    -16'sd124,
+    16'sd159,
+    16'sd767,
+    16'sd915,
+    -16'sd1123,
+    -16'sd1587,
+    16'sd1099,
+    16'sd1677,
+    -16'sd729,
+    -16'sd1225,
+    16'sd140,
+    16'sd424,
+    16'sd489,
+    16'sd463,
+    -16'sd989,
+    -16'sd1190,
+    16'sd1239,
+    16'sd1591,
+    -16'sd1192,
+    -16'sd1605,
+    16'sd887,
+    16'sd1281,
+    -16'sd429,
+    -16'sd752,
+    -16'sd37,
+    16'sd186,
+    16'sd365,
+    16'sd253,
+    -16'sd451,
+    -16'sd451,
+    16'sd253,
+    16'sd365,
+    16'sd186,
+    -16'sd37,
+    -16'sd752,
+    -16'sd429,
+    16'sd1281,
+    16'sd887,
+    -16'sd1605,
+    -16'sd1192,
+    16'sd1591,
+    16'sd1239,
+    -16'sd1190,
+    -16'sd989,
+    16'sd463,
+    16'sd489,
+    16'sd424,
+    16'sd140,
+    -16'sd1225,
+    -16'sd729,
+    16'sd1677,
+    16'sd1099,
+    -16'sd1587,
+    -16'sd1123,
+    16'sd915,
+    16'sd767,
+    16'sd159,
+    -16'sd124,
+    -16'sd1225,
+    -16'sd587,
+    16'sd1735,
+    16'sd1060,
+    -16'sd1228,
+    -16'sd989,
+    -16'sd263,
+    16'sd207,
+    16'sd1607,
+    16'sd1147,
+    16'sd260
+};

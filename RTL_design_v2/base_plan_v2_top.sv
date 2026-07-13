@@ -42,8 +42,7 @@ module base_plan_v2_top #(
     input  logic                                      y_ready,
     output logic                                      coeffs_ready,
     output logic                                      mode_error,
-    output logic                                      input_buffer_overflow_error,
-    output logic                                      output_buffer_overflow_error
+    output logic                                      input_buffer_overflow_error
 );
     localparam logic [ACTIVE_LANES_W-1:0] FullActiveLanes = ACTIVE_LANES_W'(PARALLEL_FACTOR);
 
@@ -105,7 +104,6 @@ module base_plan_v2_top #(
     logic                         parallel_output_ready;
     logic                         parallel_output_buffer_in_ready;
     logic                         parallel_output_buffer_write_valid;
-    logic                         parallel_output_overflow_error;
     logic                         parallel_output_wr_clear;
     logic                         parallel_output_rd_clear;
 
@@ -153,10 +151,8 @@ module base_plan_v2_top #(
     end
 
     assign mode_error = mode_change_error
-                     || (buffered_parallel_mode && in_valid && !input_buffer_in_ready)
                      || l1_08_parallel_active_lanes_error
-                     || input_buffer_overflow_error
-                     || output_buffer_overflow_error;
+                     || input_buffer_overflow_error;
 
     assign l1_08_parallel_in_valid = buffered_parallel_mode
                                   && parallel_chain_enable
@@ -171,7 +167,6 @@ module base_plan_v2_top #(
                                   && l1_08_parallel_input_ready
                                   && l1_09_parallel_input_ready;
 
-    assign output_buffer_overflow_error = parallel_output_overflow_error;
     assign parallel_output_buffer_write_valid = buffered_parallel_mode
                                              && parallel_output_bundle_valid
                                              && parallel_output_buffer_in_ready;
@@ -377,8 +372,7 @@ module base_plan_v2_top #(
         .out_i(parallel_output_i),
         .out_q(parallel_output_q),
         .out_valid(parallel_output_valid),
-        .out_ready(parallel_output_ready),
-        .overflow_error(parallel_output_overflow_error)
+        .out_ready(parallel_output_ready)
     );
 endmodule
 

@@ -23,9 +23,7 @@ module l1_09_v2_output_buffer #(
     output logic signed [DATA_WIDTH-1:0] out_i,
     output logic signed [DATA_WIDTH-1:0] out_q,
     output logic                         out_valid,
-    input  logic                         out_ready,
-
-    output logic                         overflow_error
+    input  logic                         out_ready
 );
     localparam int BUNDLE_DEPTH = BUFFER_DEPTH / PARALLEL_FACTOR;
     localparam int FIFO_ADDR_W = (BUNDLE_DEPTH <= 2) ? 1 : $clog2(BUNDLE_DEPTH);
@@ -112,14 +110,9 @@ module l1_09_v2_output_buffer #(
             wr_bin           <= '0;
             rd_gray_wr_sync1 <= '0;
             rd_gray_wr_sync2 <= '0;
-            overflow_error   <= 1'b0;
         end else begin
             rd_gray_wr_sync1 <= rd_gray;
             rd_gray_wr_sync2 <= rd_gray_wr_sync1;
-
-            if (in_valid && !in_ready) begin
-                overflow_error <= 1'b1;
-            end
 
             if (wr_fire) begin
                 i_mem[wr_addr] <= write_bundle_i;

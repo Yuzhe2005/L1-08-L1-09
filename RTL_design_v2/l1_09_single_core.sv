@@ -6,24 +6,22 @@ module l1_09_v2_single_coeff_bank #(
     parameter int SECTION_COUNT = SECTION_COUNT_DEFAULT,
     parameter int COEFF_WIDTH   = COEFF_WIDTH_DEFAULT
 ) (
-    input  logic                          clk,
     input  logic                          reset_n,
     output logic                          coeffs_ready,
     output logic signed [COEFF_WIDTH-1:0] a1 [SECTION_COUNT],
     output logic signed [COEFF_WIDTH-1:0] a2 [SECTION_COUNT]
 );
-    logic signed [COEFF_WIDTH-1:0] coeff_a1 [SECTION_COUNT];
-    logic signed [COEFF_WIDTH-1:0] coeff_a2 [SECTION_COUNT];
+    // Constant ROM keeps every section coefficient available in parallel.
+    `include `BASE_PLAN_L1_09_V2_COEFF_RESET_SVH
 
-    assign a1           = coeff_a1;
-    assign a2           = coeff_a2;
     assign coeffs_ready = reset_n;
 
-    always_ff @(posedge clk or negedge reset_n) begin
-        if (!reset_n) begin
-            `include `BASE_PLAN_L1_09_V2_COEFF_RESET_SVH
+    generate
+        for (genvar sec = 0; sec < SECTION_COUNT; sec++) begin : gen_coeff_rom
+            assign a1[sec] = L1_09_A1_COEFF_ROM[sec];
+            assign a2[sec] = L1_09_A2_COEFF_ROM[sec];
         end
-    end
+    endgenerate
 endmodule
 
 module l1_09_v2_single_section #(
@@ -196,7 +194,6 @@ module l1_09_v2_single_core #(
         .SECTION_COUNT(SECTION_COUNT),
         .COEFF_WIDTH(COEFF_WIDTH)
     ) u_coeff_bank (
-        .clk(clk),
         .reset_n(reset_n),
         .coeffs_ready(coeffs_ready),
         .a1(coeff_a1),

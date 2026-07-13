@@ -1,132 +1,137 @@
-// Auto-generated synthesizable async-reset coefficient init. DO NOT EDIT.
+// Auto-generated constant coefficient ROM contents. DO NOT EDIT.
 // Source: data/base_plan_pipeline_data_20260615_150846/l1_09_fix_allpass_iir_fixed/allpass_coefficients_fixed.csv
 // Profile: bw_1g, 64 all-pass sections, Q18.15
-// Stored terms: a1/a2 only; all-pass numerator is derived in RTL as b0=a2, b1=a1, b2=1.0.
-            coeff_a1[0] <= -18'sd11459;
-            coeff_a2[0] <= 18'sd30168;
-            coeff_a1[1] <= -18'sd3797;
-            coeff_a2[1] <= 18'sd4376;
-            coeff_a1[2] <= -18'sd7624;
-            coeff_a2[2] <= 18'sd31345;
-            coeff_a1[3] <= -18'sd1445;
-            coeff_a2[3] <= 18'sd2949;
-            coeff_a1[4] <= -18'sd1428;
-            coeff_a2[4] <= 18'sd3145;
-            coeff_a1[5] <= -18'sd1356;
-            coeff_a2[5] <= 18'sd3002;
-            coeff_a1[6] <= -18'sd1308;
-            coeff_a2[6] <= 18'sd2949;
-            coeff_a1[7] <= -18'sd1273;
-            coeff_a2[7] <= 18'sd2949;
-            coeff_a1[8] <= -18'sd1240;
-            coeff_a2[8] <= 18'sd2950;
-            coeff_a1[9] <= -18'sd1210;
-            coeff_a2[9] <= 18'sd2949;
-            coeff_a1[10] <= -18'sd3835;
-            coeff_a2[10] <= 18'sd31133;
-            coeff_a1[11] <= -18'sd1157;
-            coeff_a2[11] <= 18'sd2990;
-            coeff_a1[12] <= -18'sd1129;
-            coeff_a2[12] <= 18'sd3003;
-            coeff_a1[13] <= -18'sd1098;
-            coeff_a2[13] <= 18'sd3010;
-            coeff_a1[14] <= -18'sd1065;
-            coeff_a2[14] <= 18'sd2999;
-            coeff_a1[15] <= -18'sd1033;
-            coeff_a2[15] <= 18'sd2992;
-            coeff_a1[16] <= -18'sd1002;
-            coeff_a2[16] <= 18'sd2984;
-            coeff_a1[17] <= -18'sd969;
-            coeff_a2[17] <= 18'sd2975;
-            coeff_a1[18] <= -18'sd935;
-            coeff_a2[18] <= 18'sd2966;
-            coeff_a1[19] <= -18'sd902;
-            coeff_a2[19] <= 18'sd2956;
-            coeff_a1[20] <= -18'sd871;
-            coeff_a2[20] <= 18'sd2950;
-            coeff_a1[21] <= -18'sd841;
-            coeff_a2[21] <= 18'sd2949;
-            coeff_a1[22] <= -18'sd821;
-            coeff_a2[22] <= 18'sd3020;
-            coeff_a1[23] <= -18'sd790;
-            coeff_a2[23] <= 18'sd3018;
-            coeff_a1[24] <= -18'sd760;
-            coeff_a2[24] <= 18'sd3023;
-            coeff_a1[25] <= -18'sd730;
-            coeff_a2[25] <= 18'sd3020;
-            coeff_a1[26] <= -18'sd700;
-            coeff_a2[26] <= 18'sd3018;
-            coeff_a1[27] <= -18'sd669;
-            coeff_a2[27] <= 18'sd3018;
-            coeff_a1[28] <= -18'sd639;
-            coeff_a2[28] <= 18'sd3015;
-            coeff_a1[29] <= -18'sd608;
-            coeff_a2[29] <= 18'sd3011;
-            coeff_a1[30] <= -18'sd578;
-            coeff_a2[30] <= 18'sd3009;
-            coeff_a1[31] <= -18'sd548;
-            coeff_a2[31] <= 18'sd3004;
-            coeff_a1[32] <= -18'sd519;
-            coeff_a2[32] <= 18'sd2998;
-            coeff_a1[33] <= -18'sd489;
-            coeff_a2[33] <= 18'sd3003;
-            coeff_a1[34] <= -18'sd464;
-            coeff_a2[34] <= 18'sd3052;
-            coeff_a1[35] <= -18'sd433;
-            coeff_a2[35] <= 18'sd3042;
-            coeff_a1[36] <= -18'sd404;
-            coeff_a2[36] <= 18'sd3036;
-            coeff_a1[37] <= -18'sd374;
-            coeff_a2[37] <= 18'sd3028;
-            coeff_a1[38] <= -18'sd344;
-            coeff_a2[38] <= 18'sd3023;
-            coeff_a1[39] <= -18'sd314;
-            coeff_a2[39] <= 18'sd3020;
-            coeff_a1[40] <= -18'sd285;
-            coeff_a2[40] <= 18'sd3014;
-            coeff_a1[41] <= -18'sd255;
-            coeff_a2[41] <= 18'sd3011;
-            coeff_a1[42] <= -18'sd225;
-            coeff_a2[42] <= 18'sd3000;
-            coeff_a1[43] <= -18'sd196;
-            coeff_a2[43] <= 18'sd3000;
-            coeff_a1[44] <= -18'sd167;
-            coeff_a2[44] <= 18'sd2995;
-            coeff_a1[45] <= -18'sd138;
-            coeff_a2[45] <= 18'sd2992;
-            coeff_a1[46] <= -18'sd108;
-            coeff_a2[46] <= 18'sd2988;
-            coeff_a1[47] <= -18'sd79;
-            coeff_a2[47] <= 18'sd2986;
-            coeff_a1[48] <= -18'sd50;
-            coeff_a2[48] <= 18'sd2986;
-            coeff_a1[49] <= -18'sd21;
-            coeff_a2[49] <= 18'sd2984;
-            coeff_a1[50] <= 18'sd25;
-            coeff_a2[50] <= 18'sd31305;
-            coeff_a1[51] <= 18'sd3760;
-            coeff_a2[51] <= 18'sd31071;
-            coeff_a1[52] <= 18'sd1281;
-            coeff_a2[52] <= 18'sd3224;
-            coeff_a1[53] <= 18'sd1360;
-            coeff_a2[53] <= 18'sd3253;
-            coeff_a1[54] <= 18'sd1446;
-            coeff_a2[54] <= 18'sd3282;
-            coeff_a1[55] <= 18'sd1534;
-            coeff_a2[55] <= 18'sd3286;
-            coeff_a1[56] <= 18'sd1630;
-            coeff_a2[56] <= 18'sd3298;
-            coeff_a1[57] <= 18'sd1737;
-            coeff_a2[57] <= 18'sd3310;
-            coeff_a1[58] <= 18'sd1847;
-            coeff_a2[58] <= 18'sd3311;
-            coeff_a1[59] <= 18'sd1966;
-            coeff_a2[59] <= 18'sd3318;
-            coeff_a1[60] <= 18'sd5760;
-            coeff_a2[60] <= 18'sd25121;
-            coeff_a1[61] <= 18'sd6314;
-            coeff_a2[61] <= 18'sd24545;
-            coeff_a1[62] <= 18'sd7558;
-            coeff_a2[62] <= 18'sd30960;
-            coeff_a1[63] <= 18'sd11617;
-            coeff_a2[63] <= 18'sd31006;
+// Stored terms: a1/a2; b0=a2, b1=a1, b2=1.0.
+localparam logic signed [17:0] L1_09_A1_COEFF_ROM [0:63] = '{
+    -18'sd11459,
+    -18'sd3797,
+    -18'sd7624,
+    -18'sd1445,
+    -18'sd1428,
+    -18'sd1356,
+    -18'sd1308,
+    -18'sd1273,
+    -18'sd1240,
+    -18'sd1210,
+    -18'sd3835,
+    -18'sd1157,
+    -18'sd1129,
+    -18'sd1098,
+    -18'sd1065,
+    -18'sd1033,
+    -18'sd1002,
+    -18'sd969,
+    -18'sd935,
+    -18'sd902,
+    -18'sd871,
+    -18'sd841,
+    -18'sd821,
+    -18'sd790,
+    -18'sd760,
+    -18'sd730,
+    -18'sd700,
+    -18'sd669,
+    -18'sd639,
+    -18'sd608,
+    -18'sd578,
+    -18'sd548,
+    -18'sd519,
+    -18'sd489,
+    -18'sd464,
+    -18'sd433,
+    -18'sd404,
+    -18'sd374,
+    -18'sd344,
+    -18'sd314,
+    -18'sd285,
+    -18'sd255,
+    -18'sd225,
+    -18'sd196,
+    -18'sd167,
+    -18'sd138,
+    -18'sd108,
+    -18'sd79,
+    -18'sd50,
+    -18'sd21,
+    18'sd25,
+    18'sd3760,
+    18'sd1281,
+    18'sd1360,
+    18'sd1446,
+    18'sd1534,
+    18'sd1630,
+    18'sd1737,
+    18'sd1847,
+    18'sd1966,
+    18'sd5760,
+    18'sd6314,
+    18'sd7558,
+    18'sd11617
+};
+
+localparam logic signed [17:0] L1_09_A2_COEFF_ROM [0:63] = '{
+    18'sd30168,
+    18'sd4376,
+    18'sd31345,
+    18'sd2949,
+    18'sd3145,
+    18'sd3002,
+    18'sd2949,
+    18'sd2949,
+    18'sd2950,
+    18'sd2949,
+    18'sd31133,
+    18'sd2990,
+    18'sd3003,
+    18'sd3010,
+    18'sd2999,
+    18'sd2992,
+    18'sd2984,
+    18'sd2975,
+    18'sd2966,
+    18'sd2956,
+    18'sd2950,
+    18'sd2949,
+    18'sd3020,
+    18'sd3018,
+    18'sd3023,
+    18'sd3020,
+    18'sd3018,
+    18'sd3018,
+    18'sd3015,
+    18'sd3011,
+    18'sd3009,
+    18'sd3004,
+    18'sd2998,
+    18'sd3003,
+    18'sd3052,
+    18'sd3042,
+    18'sd3036,
+    18'sd3028,
+    18'sd3023,
+    18'sd3020,
+    18'sd3014,
+    18'sd3011,
+    18'sd3000,
+    18'sd3000,
+    18'sd2995,
+    18'sd2992,
+    18'sd2988,
+    18'sd2986,
+    18'sd2986,
+    18'sd2984,
+    18'sd31305,
+    18'sd31071,
+    18'sd3224,
+    18'sd3253,
+    18'sd3282,
+    18'sd3286,
+    18'sd3298,
+    18'sd3310,
+    18'sd3311,
+    18'sd3318,
+    18'sd25121,
+    18'sd24545,
+    18'sd30960,
+    18'sd31006
+};

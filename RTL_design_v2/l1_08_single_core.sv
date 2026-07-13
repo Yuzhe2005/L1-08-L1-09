@@ -6,21 +6,20 @@ module l1_08_v2_coeff_bank #(
     parameter int TAP_NUM     = TAP_NUM_DEFAULT,
     parameter int COEFF_WIDTH = COEFF_WIDTH_DEFAULT
 ) (
-    input  logic                          clk,
     input  logic                          reset_n,
     output logic                          coeffs_ready,
     output logic signed [COEFF_WIDTH-1:0] coeff [TAP_NUM]
 );
-    logic signed [COEFF_WIDTH-1:0] coeff_mem [TAP_NUM];
+    // Constant ROM keeps every coefficient available in parallel to the MACs.
+    `include `BASE_PLAN_L1_08_V2_COEFF_RESET_SVH
 
-    assign coeff        = coeff_mem;
     assign coeffs_ready = reset_n;
 
-    always_ff @(posedge clk or negedge reset_n) begin
-        if (!reset_n) begin
-            `include `BASE_PLAN_L1_08_V2_COEFF_RESET_SVH
+    generate
+        for (genvar coeff_idx = 0; coeff_idx < TAP_NUM; coeff_idx++) begin : gen_coeff_rom
+            assign coeff[coeff_idx] = L1_08_FIR_COEFF_ROM[coeff_idx];
         end
-    end
+    endgenerate
 endmodule
 
 module l1_08_v2_fir_mac #(
@@ -158,7 +157,7 @@ module l1_08_v2_core_single #(
     output logic                             y_valid,
     output logic                             coeffs_ready
 );
-    localparam int OUTPUT_LATENCY    = MAC_LATENCY + 1;
+    localparam int OUTPUT_LATENCY    = MAC_LATENCY;
 
     logic signed [DATA_WIDTH-1:0]  i_window [TAP_NUM];
     logic signed [DATA_WIDTH-1:0]  q_window [TAP_NUM];
@@ -187,7 +186,6 @@ module l1_08_v2_core_single #(
         .TAP_NUM(TAP_NUM),
         .COEFF_WIDTH(COEFF_WIDTH)
     ) u_coeff_bank (
-        .clk(clk),
         .reset_n(reset_n),
         .coeffs_ready(coeffs_ready),
         .coeff(coeff)

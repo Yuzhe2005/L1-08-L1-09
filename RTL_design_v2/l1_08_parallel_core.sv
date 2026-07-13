@@ -27,7 +27,7 @@ module l1_08_v2_core_parallel #(
     output logic                              coeffs_ready,
     output logic                              active_lanes_error
 );
-    localparam int OUTPUT_LATENCY     = MAC_LATENCY + 1;
+    localparam int OUTPUT_LATENCY     = MAC_LATENCY;
 
     localparam logic [ACTIVE_LANES_W-1:0]    ParallelFactorActive = PARALLEL_FACTOR;
 
@@ -63,7 +63,6 @@ module l1_08_v2_core_parallel #(
         .TAP_NUM(TAP_NUM),
         .COEFF_WIDTH(COEFF_WIDTH)
     ) u_coeff_bank (
-        .clk(clk),
         .reset_n(reset_n),
         .coeffs_ready(coeffs_ready),
         .coeff(coeff)

@@ -39,6 +39,9 @@ module l1_08_v2_input_buffer #(
     logic [BUNDLE_W-1:0] q_mem [BUNDLE_DEPTH];
     logic signed [DATA_WIDTH-1:0] pack_i [PARALLEL_FACTOR];
     logic signed [DATA_WIDTH-1:0] pack_q [PARALLEL_FACTOR];
+    logic signed [DATA_WIDTH-1:0] stalled_i;
+    logic signed [DATA_WIDTH-1:0] stalled_q;
+    logic                         stall_active;
     logic [BUNDLE_W-1:0] write_bundle_i;
     logic [BUNDLE_W-1:0] write_bundle_q;
     logic [PACK_COUNT_W-1:0] pack_count;
@@ -121,6 +124,9 @@ module l1_08_v2_input_buffer #(
             rd_gray_wr_sync2 <= '0;
             overflow_error  <= 1'b0;
             pack_count      <= '0;
+            stalled_i       <= '0;
+            stalled_q       <= '0;
+            stall_active    <= 1'b0;
             for (int lane = 0; lane < PARALLEL_FACTOR; lane++) begin
                 pack_i[lane] <= '0;
                 pack_q[lane] <= '0;
@@ -129,8 +135,22 @@ module l1_08_v2_input_buffer #(
             rd_gray_wr_sync1 <= rd_gray;
             rd_gray_wr_sync2 <= rd_gray_wr_sync1;
 
-            if (in_valid && !in_ready) begin
-                overflow_error <= 1'b1;
+            // Backpressure is legal in valid-ready. Report only a source
+            // violation that can lose the sample held during a stall.
+            if (!stall_active) begin
+                if (in_valid && !in_ready) begin
+                    stalled_i    <= in_i;
+                    stalled_q    <= in_q;
+                    stall_active <= 1'b1;
+                end
+            end else begin
+                if (!in_valid || (in_i != stalled_i) || (in_q != stalled_q)) begin
+                    overflow_error <= 1'b1;
+                end
+
+                if (!in_valid || in_ready) begin
+                    stall_active <= 1'b0;
+                end
             end
 
             if (wr_fire) begin
